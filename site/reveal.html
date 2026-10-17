@@ -271,10 +271,21 @@ function render(){
   fill.style.width=(100*t/TOTAL)+'%';timeEl.textContent=`${fmt(t)} / ${fmt(TOTAL)}`;
 }
 function tick(ts){if(!playing)return;if(last==null)last=ts;t+=(ts-last)/1000;last=ts;
-  if(t>=TOTAL){t=TOTAL;render();pause();return;}render();raf=requestAnimationFrame(tick);}
+  if(t>=TOTAL){t=TOTAL;render();pause();upNext();return;}render();raf=requestAnimationFrame(tick);}
 function play(){if(t>=TOTAL){t=0;spokenBeat=-1;capBeat=-1;revealed={gh:false,rel:false};}
   playing=true;last=null;playBtn.textContent='⏸';raf=requestAnimationFrame(tick);render();}
 function pause(){playing=false;playBtn.textContent='▶';cancelAnimationFrame(raf);if('speechSynthesis'in window)window.speechSynthesis.cancel();}
+
+let advancing=false;
+function upNext(){ if(advancing)return; advancing=true; let n=5; const NEXT='handoff.html?autoplay=1';
+  const ov=document.createElement('div');
+  ov.style.cssText='position:absolute;inset:0;display:grid;place-items:center;background:rgba(9,12,16,.86);backdrop-filter:blur(4px);z-index:7;text-align:center';
+  ov.innerHTML='<div><div style="color:#bc8cff;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Up next</div><div style="font-size:22px;font-weight:600;margin:6px 0 2px">Video 7 · screens that come and go</div><div id="cd" style="color:#8b949e;margin-top:10px">starting in '+n+'s…</div><div style="margin-top:16px;display:flex;gap:10px;justify-content:center"><button id="go" style="background:#bc8cff;color:#0d1117;border:0;padding:9px 16px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer">Play now</button><button id="stay" style="background:#161b22;color:#e6edf3;border:1px solid #30363d;padding:9px 16px;border-radius:8px;font:inherit;cursor:pointer">Stay here</button></div></div>';
+  movie.appendChild(ov);
+  const go=()=>{clearInterval(iv);location.href=NEXT;};
+  const iv=setInterval(()=>{n--;const cd=document.getElementById('cd');if(cd)cd.textContent='starting in '+n+'s…';if(n<=0)go();},1000);
+  ov.querySelector('#go').onclick=go; ov.querySelector('#stay').onclick=()=>{clearInterval(iv);ov.remove();advancing=false;};
+}
 playBtn.onclick=()=>playing?pause():play();
 const voiceBtn=document.getElementById('voice');
 voiceBtn.onclick=()=>{voiceOn=!voiceOn;voiceBtn.classList.toggle('on',voiceOn);
