@@ -87,6 +87,14 @@
   .movie.playing .caption.show{opacity:1;transform:none}
   .caption .step{color:var(--purple);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
   .caption .txt{margin-top:3px;font-size:15px;line-height:1.5}
+  /* caption attention cues */
+  @keyframes capPop{0%{transform:scale(.96) translateY(10px);opacity:0}
+    55%{transform:scale(1.03) translateY(0);opacity:1}100%{transform:scale(1)}}
+  @keyframes wordIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .caption.pop{animation:capPop .5s cubic-bezier(.2,.8,.2,1)}
+  .caption .txt .w{display:inline-block;opacity:0;animation:wordIn .32s ease forwards}
+  .caption .step{transition:color .3s}
+  .caption.pop .step{color:#d7b8ff}
   .caption code{background:#1f2630;padding:1px 6px;border-radius:5px;font-family:var(--mono);font-size:.85em}
 
   /* ---- controls ---- */
@@ -240,6 +248,28 @@ const fmt=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
 
 function beatAt(time){let acc=0;for(const b of BEATS){if(time<acc+b.d)return {b,into:time-acc};acc+=b.d;}return {b:BEATS[BEATS.length-1],into:BEATS[BEATS.length-1].d};}
 
+function beatIdx2(x){let a=0;for(let i=0;i<BEATS.length;i++){if(x<a+BEATS[i].d)return i;a+=BEATS[i].d;}return BEATS.length-1;}
+
+function revealCaption(el, html){
+  // split on spaces but keep inline tags (code, b) intact-ish: wrap text words only.
+  const tmp=document.createElement('div'); tmp.innerHTML=html;
+  function walk(node){
+    const out=document.createDocumentFragment();
+    node.childNodes.forEach(ch=>{
+      if(ch.nodeType===3){ // text
+        ch.textContent.split(/(\s+)/).forEach(tok=>{
+          if(tok.trim()===''){ out.appendChild(document.createTextNode(tok)); }
+          else{ const w=document.createElement('span'); w.className='w'; w.textContent=tok; out.appendChild(w); }
+        });
+      } else { const c=ch.cloneNode(false); c.appendChild(walk(ch)); out.appendChild(c); }
+    });
+    return out;
+  }
+  el.innerHTML=''; el.appendChild(walk(tmp));
+  const words=el.querySelectorAll('.w');
+  words.forEach((w,k)=>{ w.style.animationDelay=(0.04*k)+'s'; });
+}
+let capBeat=-1;
 function render(){
   const {b}=beatAt(t);
   movie.classList.toggle('playing', playing || t>0);
@@ -247,7 +277,12 @@ function render(){
   document.querySelectorAll('.spot').forEach(e=>e.classList.remove('spot'));
   b.keys.forEach(k=>document.querySelectorAll(`[data-k="${k}"]`).forEach(e=>e.classList.add('spot')));
   placePin(b.pin);
-  capStep.innerHTML=b.step; capTxt.innerHTML=b.txt; cap.classList.add('show');
+  const bi=beatIdx2(t);
+  if(bi!==capBeat){ capBeat=bi;
+    capStep.innerHTML=b.step;
+    revealCaption(capTxt, b.txt);
+    cap.classList.remove('pop'); void cap.offsetWidth; cap.classList.add('pop','show');
+  }
   fill.style.width=(100*t/TOTAL)+'%';
   timeEl.textContent=`${fmt(t)} / ${fmt(TOTAL)}`;
 }
@@ -257,7 +292,7 @@ function tick(ts){
   if(t>=TOTAL){t=TOTAL; render(); pause(); upNext(); return;}
   render(); raf=requestAnimationFrame(tick);
 }
-function play(){ if(t>=TOTAL)t=0; playing=true; last=null; playBtn.textContent='⏸';
+function play(){ if(t>=TOTAL){t=0;capBeat=-1;} playing=true; last=null; playBtn.textContent='⏸';
   raf=requestAnimationFrame(tick); render(); }
 function pause(){ playing=false; playBtn.textContent='▶'; cancelAnimationFrame(raf); }
 
