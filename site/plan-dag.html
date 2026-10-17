@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ship Proven — a plan, its PR, and the release it drives</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --line:#30363d;
+    --fg:#e6edf3; --dim:#8b949e; --mut:#7d8590;
+    --green:#3fb950; --red:#f85149; --yellow:#d29922; --purple:#bc8cff;
+    --blue:#58a6ff; --term:#0b0f14;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1320px;margin:0 auto;padding:40px 20px 60px}
+  .eyebrow{color:var(--purple);font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:12px}
+  h1{font-size:30px;line-height:1.15;margin:.3em 0 .15em}
+  .sub{color:var(--dim);font-size:17px;margin:0 0 24px;max-width:820px}
+
+  .movie{position:relative;border:1px solid var(--line);border-radius:14px;background:#090c10;padding:18px;overflow:hidden}
+  .stage{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:16px;align-items:start}
+  @media (max-width:1040px){.stage{grid-template-columns:1fr}}
+
+  .pane{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel);
+    transition:box-shadow .4s,filter .4s}
+  .pane h2{margin:0;font-size:12.5px;color:var(--mut);font-weight:600;
+    padding:10px 14px;border-bottom:1px solid var(--line);background:#11161d;display:flex;align-items:center;gap:8px}
+  .dots{display:flex;gap:6px;margin-right:6px}.dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f56}.y{background:#ffbd2e}.g{background:#27c93f}
+
+  .movie.playing .pane{filter:brightness(.5)}
+  .movie.playing .pane.active{filter:brightness(1);box-shadow:0 0 0 2px var(--purple),0 14px 50px rgba(188,140,255,.25)}
+  .spot{background:rgba(188,140,255,.14);box-shadow:0 0 0 1px rgba(188,140,255,.5) inset;border-radius:6px}
+  /* cross-screen annotation pins */
+  .movie{--pin:0}
+  .pinlayer{position:absolute;inset:0;pointer-events:none;z-index:4}
+  .pin{position:absolute;max-width:220px;opacity:0;transform:translateY(6px);
+    transition:opacity .35s,transform .35s}
+  .pin.show{opacity:1;transform:none}
+  .pin .bubble{background:#1b1030;border:1px solid var(--purple);border-radius:9px;
+    padding:8px 10px;font-size:12px;line-height:1.4;color:#e9ddff;
+    box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  .pin .bubble b{color:#fff}
+  .pin .bubble code{background:#2a1b45;padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:.9em}
+  .pin .arrow{position:absolute;width:0;height:0}
+  /* arrow variants: point from bubble toward the target edge */
+  .pin.down .arrow{left:22px;bottom:-9px;border:9px solid transparent;border-top-color:var(--purple)}
+  .pin.up   .arrow{left:22px;top:-9px;border:9px solid transparent;border-bottom-color:var(--purple)}
+  .pin.left .arrow{top:14px;left:-9px;border:9px solid transparent;border-right-color:var(--purple)}
+  .pin.right .arrow{top:14px;right:-9px;border:9px solid transparent;border-left-color:var(--purple)}
+  /* a soft ring drawn on the targeted element */
+  .ring{box-shadow:0 0 0 2px var(--purple),0 0 22px rgba(188,140,255,.45)!important;border-radius:6px}
+  .pane{transform-origin:center;transition:filter .4s,box-shadow .4s,transform .5s}
+  .movie.zoom .pane.active{transform:scale(1.03);z-index:2}
+  .zoomed{transform:scale(1.15);transform-origin:left center;transition:transform .5s;position:relative;z-index:3}
+  .voice{background:var(--panel);color:var(--fg);border:1px solid var(--line);height:44px;padding:0 14px;
+    border-radius:22px;font:inherit;cursor:pointer;display:flex;align-items:center;gap:8px}
+  .voice.on{border-color:var(--purple);color:#e9ddff}
+  .voice .d{width:8px;height:8px;border-radius:50%;background:#30363d}
+  .voice.on .d{background:var(--purple);box-shadow:0 0 8px var(--purple)}
+
+
+  .term{background:var(--term);font-family:var(--mono);font-size:12.5px;line-height:1.65;
+    padding:14px;white-space:pre-wrap;color:#cdd9e5;min-height:560px}
+  .term .p{color:var(--green)}.term .c{color:#e6edf3}.term .o{color:var(--mut)}
+  .term .k{color:var(--blue)}.term .n{color:var(--yellow)}.term .note{color:var(--purple)}
+  .term .ok{color:var(--green)}.term .bad{color:var(--red)}
+  .line{display:block;border-radius:6px;padding:0 4px;margin:0 -4px}
+
+  .gh .hd{padding:14px;border-bottom:1px solid var(--line)}
+  .gh .title{font-size:16px;font-weight:600;margin:0 0 8px}
+  .gh .title .num{color:var(--mut);font-weight:400}
+  .state{display:inline-flex;gap:6px;font-size:12px;font-weight:600;color:#fff;padding:4px 10px;border-radius:999px}
+  .state.merged{background:#8957e5}.state.open{background:#238636}
+  .gh .meta{color:var(--dim);font-size:12.5px;margin-top:9px}.gh .meta b{color:var(--fg)}
+  .branch{font-family:var(--mono);background:#1f2630;padding:1px 6px;border-radius:5px;font-size:12px}
+  .grp{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:10px 14px 2px}
+  .row{display:flex;align-items:center;gap:9px;padding:7px 14px;border-bottom:1px solid #22272e;font-size:12.5px}
+  .row .nm{font-family:var(--mono)}.row .st{margin-left:auto;color:var(--dim);font-size:11.5px}
+  .ok{color:var(--green)}.pend{color:var(--yellow)}.bad{color:var(--red)}
+
+  /* release / verify panel as a vertical pipeline */
+  .pipe{padding:14px}
+  .stage-row{display:flex;gap:10px;align-items:flex-start;padding:8px 6px;border-radius:8px}
+  .stage-row .bul{width:18px;height:18px;border-radius:50%;flex:0 0 18px;display:grid;place-items:center;font-size:11px;
+    color:#0d1117;font-weight:700;margin-top:1px}
+  .bul.done{background:var(--green)}.bul.wait{background:var(--yellow)}.bul.todo{background:#30363d;color:var(--mut)}
+  .stage-row .body h4{margin:0;font-size:13px}.stage-row .body p{margin:2px 0 0;color:var(--dim);font-size:12px}
+  .conn{width:2px;height:12px;background:#30363d;margin-left:14px}
+
+  .caption{position:absolute;left:18px;right:18px;bottom:18px;background:rgba(13,17,23,.93);
+    border:1px solid var(--line);border-left:3px solid var(--purple);border-radius:10px;padding:14px 16px;
+    backdrop-filter:blur(6px);opacity:0;transform:translateY(8px);transition:opacity .4s,transform .4s;pointer-events:none}
+  .movie.playing .caption.show{opacity:1;transform:none}
+  .caption .step{color:var(--purple);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .caption .txt{margin-top:3px;font-size:15px}.caption code{background:#1f2630;padding:1px 6px;border-radius:5px;font-family:var(--mono);font-size:.85em}
+
+  .bar{display:flex;align-items:center;gap:14px;margin-top:14px}
+  .btn{background:var(--panel);color:var(--fg);border:1px solid var(--line);width:44px;height:44px;border-radius:50%;
+    font-size:18px;cursor:pointer;display:grid;place-items:center}.btn:hover{border-color:var(--purple)}
+  .track{flex:1;height:6px;background:#22272e;border-radius:999px;position:relative;cursor:pointer}
+  .fill{position:absolute;left:0;top:0;bottom:0;background:var(--purple);border-radius:999px;width:0}
+  .time{color:var(--mut);font-size:12px;font-variant-numeric:tabular-nums;min-width:74px;text-align:right}
+  .nav{display:flex;gap:14px;margin:26px 0 0}
+  .nav a{color:var(--blue);text-decoration:none;font-size:14px;border:1px solid var(--line);padding:8px 14px;border-radius:8px}
+  .nav a:hover{border-color:var(--blue)}
+  footer{color:var(--mut);font-size:12px;margin-top:28px;border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Ship Proven · a plan across three screens</div>
+  <h1>One plan step → a merged PR → the release it drives</h1>
+  <p class="sub">Same format as before, now with three panels: the plan in the Terminal, the pull request
+    it produced on GitHub, and the verify-release flow that ran once it merged. Press play.</p>
+
+  <div class="movie" id="movie">
+    <div class="stage">
+
+      <!-- 1 — TERMINAL / PLAN DAG -->
+      <div class="pane" id="pane-term">
+        <h2><span class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></span>
+          ship-proven shell</h2>
+        <div class="term">
+<span class="line" data-k="t1"><span class="p">❯</span> <span class="c">get_plan blockchain-service-endpoints</span></span>
+<span class="line" data-k="t1"><span class="o">plan  </span> blockchain-service-endpoints</span>
+<span class="line" data-k="t1"><span class="o">phase </span> <span class="bad">Failed</span>  <span class="o">(one branch green, one red)</span></span>
+
+<span class="line" data-k="t2"><span class="o">steps (DAG):</span></span>
+<span class="line" data-k="t2">  <span class="k">read-endpoints</span>            <span class="ok">✔ Succeeded</span></span>
+<span class="line" data-k="t2">    kind pr · pr <span class="n">5</span> · merged</span>
+<span class="line" data-k="t3">  └ <span class="k">read-…-verify-release</span>   <span class="ok">✔ Succeeded</span></span>
+<span class="line" data-k="t3">      depends on read-endpoints</span>
+
+<span class="line" data-k="t5">  <span class="k">write-endpoints</span>           <span class="bad">✘ Failed</span></span>
+<span class="line" data-k="t5">    kind pr · depends on read-endpoints</span>
+<span class="line" data-k="t5">    retryCount 1 · agentrun-vanished</span>
+<span class="line" data-k="t5">  └ <span class="k">write-…-verify-release</span>  <span class="o">○ Pending</span></span>
+
+<span class="line" data-k="t4"><span class="o">decisions:</span></span>
+<span class="line" data-k="t4">  08:55:30 <span class="note">adopted-pr</span> #5 → status.targetPR</span>
+<span class="line" data-k="t4">  08:55:32 step-terminal Succeeded</span>
+
+<span class="line" data-k="t6"><span class="note">↳ a DAG: write-endpoints can only start once</span></span>
+<span class="line" data-k="t6"><span class="note">  read-endpoints settled. Its failure is why the</span></span>
+<span class="line" data-k="t6"><span class="note">  plan is Failed — not read-endpoints, which shipped.</span></span>
+</div>
+      </div>
+
+      <!-- 2 — GITHUB PR #5 -->
+      <div class="pane gh" id="pane-gh">
+        <h2>github.com · leartech-blockchain-api</h2>
+        <div class="hd" data-k="g1">
+          <p class="title">read-endpoints <span class="num">#5</span></p>
+          <span class="state merged">⚑ Merged</span>
+          <div class="meta"><b>merged</b> into <span class="branch">main</span> from
+            <span class="branch">feat/read-endpoints</span></div>
+          <div class="meta">agentrun <b>…read-endpoints</b> · agent leartech-agent-go</div>
+        </div>
+        <div class="grp" data-k="g2">status.targetPR</div>
+        <div class="row" data-k="g2"><span class="ok">✔</span><span class="nm">targetPR = 5</span>
+          <span class="st">set via adopt_pr</span></div>
+        <div class="grp">checks on merge commit</div>
+        <div class="row" data-k="g3"><span class="ok">✔</span><span class="nm">lint</span><span class="st">Successful</span></div>
+        <div class="row" data-k="g3"><span class="ok">✔</span><span class="nm">test</span><span class="st">Successful</span></div>
+        <div class="row" data-k="g3"><span class="ok">✔</span><span class="nm">comment-gate</span><span class="st">Successful</span></div>
+        <div class="row" data-k="g3"><span class="ok">✔</span><span class="nm">ai-review</span><span class="st">Successful</span></div>
+        <div class="grp">step link</div>
+        <div class="row" data-k="g4"><span class="ok">✔</span><span class="nm">read-endpoints</span><span class="st">Succeeded</span></div>
+      </div>
+
+      <!-- 3 — VERIFY-RELEASE FLOW -->
+      <div class="pane" id="pane-rel">
+        <h2>verify-release-flow · leartech-blockchain-api</h2>
+        <div class="pipe">
+          <div class="stage-row" data-k="r1"><div class="bul done">✓</div>
+            <div class="body"><h4>release-passed</h4><p>release pipeline green on the merge of #5</p></div></div>
+          <div class="conn"></div>
+          <div class="stage-row" data-k="r2"><div class="bul done">✓</div>
+            <div class="body"><h4>promote-merged</h4><p>promotion PR to the environment merged</p></div></div>
+          <div class="conn"></div>
+          <div class="stage-row" data-k="r2"><div class="bul done">✓</div>
+            <div class="body"><h4>bootjob-ran</h4><p>boot/migration job completed</p></div></div>
+          <div class="conn"></div>
+          <div class="stage-row" data-k="r3"><div class="bul done">✓</div>
+            <div class="body"><h4>deploy-healthy</h4><p>new revision reports healthy</p></div></div>
+          <div class="conn"></div>
+          <div class="stage-row" data-k="r4"><div class="bul todo">○</div>
+            <div class="body"><h4>write-endpoints · verify-release</h4>
+              <p>Pending — waits on write-endpoints, which failed</p></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="caption" id="caption">
+      <div class="step" id="cap-step"></div>
+      <div class="txt" id="cap-txt"></div>
+    </div>
+    <div class="pinlayer" id="pinlayer"></div>
+  </div>
+
+  <div class="bar">
+    <button class="btn" id="play">▶</button>
+    <div class="track" id="track"><div class="fill" id="fill"></div></div>
+    <div class="time" id="time">0:00 / 0:00</div>
+    <button class="voice" id="voice"><span class="d"></span>Voiceover</button>
+  </div>
+
+  <div class="nav">
+    <a href="pr239.html">← Video 1 · one PR, four screens</a>
+    <a href="showcase.html?autoplay=1">Video 3 · feature showcase →</a>
+  </div>
+
+  <footer>Static page, self-playing narration. Data captured live from plan
+    <code>blockchain-service-endpoints</code> via the plan API on 2026-10-17.</footer>
+</div>
+
+<script>
+const BEATS=[
+ {d:5,pane:'term',keys:['t1'],step:'1 · ask the plan',
+  txt:'<code>get_plan</code> shows one plan whose phase is <b>Failed</b> — but that is only half the story.',
+  say:'get plan shows one plan whose phase is Failed. But that is only half the story.'},
+ {d:6,pane:'term',keys:['t2'],step:'2 · it is a DAG, not a line',
+  txt:'The plan has several steps. <code>read-endpoints</code> (a <code>pr</code> step) already <b>Succeeded</b> as PR #5.',
+  pin:{target:'g1',side:'left',html:'<b>Same object →</b> PR #5 on GitHub'},
+  say:'The plan is a DAG. read-endpoints, a pull-request step, already succeeded as P R five.'},
+ {d:5,pane:'term',keys:['t3'],step:'3 · a child verify step',
+  txt:'Each shipped PR fans out to a <code>verify-release</code> check that depends on it.',
+  pin:{target:'r1',side:'left',html:'<b>…and drives this →</b> the release flow'},
+  say:'Each shipped pull request fans out to a verify-release check that depends on it.'},
+ {d:5,pane:'term',keys:['t4'],step:'4 · how read-endpoints settled',
+  txt:'A human ran <code>adopt_pr</code>, writing <code>status.targetPR = 5</code>; the reconciler then settled the step.',
+  pin:{target:'g2',side:'left',html:'<b>This wrote →</b> <code>targetPR = 5</code>'},
+  say:'A human ran adopt P R, writing status dot targetPR equals five, and the reconciler settled the step.'},
+ {d:6,pane:'gh',keys:['g1','g2'],step:'5 · the same PR on GitHub',
+  txt:'PR #5, <b>merged</b> from <code>feat/read-endpoints</code>. <code>targetPR = 5</code> is the link back to the step.',
+  pin:{target:'t2',side:'right',html:'<b>← Came from</b> the <code>read-endpoints</code> step'},
+  say:'The same object on GitHub: pull request five, merged. targetPR five is the link back to the step.'},
+ {d:6,pane:'gh',keys:['g3','g4'],step:'6 · zoom: the step goes green',
+  txt:'Gates pass on the merge commit and <code>read-endpoints</code> reads <b>Succeeded</b> — pushing in on the row where the Terminal and GitHub agree.',
+  pin:{target:'t2',side:'right',html:'<b>← Terminal agrees:</b> step Succeeded'}, zoom:'g4',
+  say:'Gates pass on the merge commit, and read-endpoints reads Succeeded. The terminal and GitHub agree.'},
+ {d:6,pane:'rel',keys:['r1','r2','r3'],step:'7 · merging drives a release',
+  txt:'Because #5 merged, the <code>verify-release</code> flow runs: release-passed → promote-merged → bootjob → deploy-healthy.',
+  pin:{target:'g1',side:'right',html:'<b>← Triggered by</b> the merge of #5'},
+  say:'Because five merged, the verify-release flow runs: release passed, promote merged, boot job, deploy healthy.'},
+ {d:6,pane:'term',keys:['t5','t6'],step:'8 · why the plan says Failed',
+  txt:'The other branch, <code>write-endpoints</code>, failed after a retry — so its verify step stays Pending and the plan is Failed. One branch shipped; one did not.',
+  pin:{target:'r4',side:'left',html:'<b>Still Pending →</b> waits on write-endpoints'},
+  say:'The other branch, write-endpoints, failed after a retry, so its verify step stays pending and the plan is Failed. One branch shipped, one did not.'},
+];
+const TOTAL=BEATS.reduce((s,b)=>s+b.d,0);
+const movie=document.getElementById('movie'),cap=document.getElementById('caption');
+const capStep=document.getElementById('cap-step'),capTxt=document.getElementById('cap-txt');
+const fill=document.getElementById('fill'),timeEl=document.getElementById('time'),playBtn=document.getElementById('play');
+const panes={term:document.getElementById('pane-term'),gh:document.getElementById('pane-gh'),rel:document.getElementById('pane-rel')};
+let t=0,playing=false,raf=null,last=null,voiceOn=false,spokenBeat=-1;
+const fmt=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+function beatAt(x){let a=0;for(const b of BEATS){if(x<a+b.d)return b;a+=b.d;}return BEATS[BEATS.length-1];}
+function beatIdx(x){let a=0;for(let i=0;i<BEATS.length;i++){if(x<a+BEATS[i].d)return i;a+=BEATS[i].d;}return BEATS.length-1;}
+function speak(i){ if(!voiceOn||!('speechSynthesis'in window))return; if(i===spokenBeat)return; spokenBeat=i;
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(BEATS[i].say||BEATS[i].txt.replace(/<[^>]+>/g,''));
+  u.rate=1.0;u.pitch=1.0;window.speechSynthesis.speak(u); }
+function render(){
+  const b=beatAt(t);
+  movie.classList.toggle('playing',playing||t>0);
+  for(const k in panes)panes[k].classList.toggle('active',panes[k]===panes[b.pane]);
+  document.querySelectorAll('.spot').forEach(e=>e.classList.remove('spot'));
+  b.keys.forEach(k=>document.querySelectorAll(`[data-k="${k}"]`).forEach(e=>e.classList.add('spot')));
+  placePin(b.pin);
+  movie.classList.toggle('zoom', !!b.zoom);
+  document.querySelectorAll('.zoomed').forEach(e=>e.classList.remove('zoomed'));
+  if(b.zoom){const z=document.querySelector(`[data-k="${b.zoom}"]`);if(z)z.classList.add('zoomed');}
+  if(playing) speak(beatIdx(t));
+  capStep.innerHTML=b.step;capTxt.innerHTML=b.txt;cap.classList.add('show');
+  fill.style.width=(100*t/TOTAL)+'%';timeEl.textContent=`${fmt(t)} / ${fmt(TOTAL)}`;
+}
+function tick(ts){if(!playing)return;if(last==null)last=ts;t+=(ts-last)/1000;last=ts;
+  if(t>=TOTAL){t=TOTAL;render();pause();upNext();return;}render();raf=requestAnimationFrame(tick);}
+function play(){if(t>=TOTAL){t=0;spokenBeat=-1;}playing=true;last=null;playBtn.textContent='⏸';raf=requestAnimationFrame(tick);render();}
+function pause(){playing=false;playBtn.textContent='▶';cancelAnimationFrame(raf);if('speechSynthesis'in window)window.speechSynthesis.cancel();}
+
+const pinlayer=document.getElementById('pinlayer');
+function placePin(spec){
+  pinlayer.innerHTML='';
+  document.querySelectorAll('.ring').forEach(e=>e.classList.remove('ring'));
+  if(!spec) return;
+  const tgt=document.querySelector(`[data-k="${spec.target}"]`);
+  if(!tgt) return;
+  tgt.classList.add('ring');
+  const mrect=movie.getBoundingClientRect(), trect=tgt.getBoundingClientRect();
+  const pin=document.createElement('div'); pin.className='pin '+spec.side;
+  pin.innerHTML=`<div class="bubble">${spec.html}</div><div class="arrow"></div>`;
+  pinlayer.appendChild(pin);
+  const pr=pin.getBoundingClientRect();
+  // anchor the bubble beside the target, inside the movie frame
+  let x, y=trect.top-mrect.top + trect.height/2 - 16;
+  if(spec.side==='left'){ x=trect.left-mrect.left - pr.width - 14; }
+  else if(spec.side==='right'){ x=trect.right-mrect.left + 14; }
+  else { x=trect.left-mrect.left; y=trect.top-mrect.top - pr.height - 14; }
+  x=Math.max(8,Math.min(x, mrect.width - pr.width - 8));
+  y=Math.max(8,Math.min(y, mrect.height - pr.height - 8));
+  pin.style.left=x+'px'; pin.style.top=y+'px';
+  requestAnimationFrame(()=>pin.classList.add('show'));
+}
+
+let advancing=false;
+function upNext(){ if(advancing)return; advancing=true;
+  let n=5; const NEXT='showcase.html?autoplay=1';
+  const ov=document.createElement('div');
+  ov.style.cssText='position:absolute;inset:0;display:grid;place-items:center;background:rgba(9,12,16,.86);backdrop-filter:blur(4px);z-index:6;text-align:center';
+  ov.innerHTML='<div><div style="color:#bc8cff;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Up next</div><div style="font-size:22px;font-weight:600;margin:6px 0 2px">Video 3 · feature showcase</div><div id="cd" style="color:#8b949e;margin-top:10px">starting in '+n+'s…</div><div style="margin-top:16px;display:flex;gap:10px;justify-content:center"><button id="go" style="background:#bc8cff;color:#0d1117;border:0;padding:9px 16px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer">Play now</button><button id="stay" style="background:#161b22;color:#e6edf3;border:1px solid #30363d;padding:9px 16px;border-radius:8px;font:inherit;cursor:pointer">Stay here</button></div></div>';
+  movie.appendChild(ov);
+  const go=()=>{clearInterval(iv);location.href=NEXT;};
+  const iv=setInterval(()=>{n--;const cd=document.getElementById('cd');if(cd)cd.textContent='starting in '+n+'s…';if(n<=0)go();},1000);
+  ov.querySelector('#go').onclick=go; ov.querySelector('#stay').onclick=()=>{clearInterval(iv);ov.remove();advancing=false;};
+}
+playBtn.onclick=()=>playing?pause():play();
+const voiceBtn=document.getElementById('voice');
+voiceBtn.onclick=()=>{voiceOn=!voiceOn;voiceBtn.classList.toggle('on',voiceOn);
+  if(!voiceOn&&'speechSynthesis'in window)window.speechSynthesis.cancel();
+  else{spokenBeat=-1;if(playing)speak(beatIdx(t));}};
+document.getElementById('track').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();
+  t=Math.max(0,Math.min(TOTAL,(e.clientX-r.left)/r.width*TOTAL));render();};
+if(new URLSearchParams(location.search).get('autoplay')==='1'){ play(); }
+render();
+</script>
+</body>
+</html>

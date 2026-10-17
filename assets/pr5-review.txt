@@ -1,0 +1,12 @@
+REVIEW / STEP TRAIL — read-endpoints (PR #5)
+  08:30:06  step-fired        read-endpoints
+  08:55:30  adopted-pr        PR #5 already merged on main; recording
+                              targetPR so the step settles
+            └ by user-test-platform (reason: adopt-pr)
+  08:55:32  step-terminal     Succeeded
+  08:55:41  verify-release    release-passed
+  08:55:51  verify-release    promote-merged
+
+  WHY this links to the PR screen:
+  the adopt-pr decision writes status.targetPR = 5 — the same
+  #5 on the PR card — which is how the reconciler settled it.

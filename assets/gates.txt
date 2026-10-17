@@ -1,0 +1,10 @@
+CI GATES — PR #4821 @ a1b9f3c
+  ✔ lint              passed   2.1s
+  ✔ test              passed  18.4s
+  ⧗ comment-gate      running  --
+  ○ auth-conformance  queued   --
+  ○ ai-review         queued   --
+
+  gates run against HEAD SHA a1b9f3c — the SAME sha
+  shown on the PR metadata screen. That SHA is the
+  link between the two screens.

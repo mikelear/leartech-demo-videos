@@ -1,0 +1,10 @@
+┌─ PULL REQUEST #4821 ───────────────────────────────┐
+│ title   feat(auth): add token refresh to gateway    │
+│ step    pr / open-token-refresh                      │
+│ branch  feature/token-refresh  ->  main             │
+│ head    a1b9f3c                                      │
+│ status  OPEN · awaiting gates                        │
+│ author  agent-run/plan-token-refresh-3              │
+└────────────────────────────────────────────────────┘
+   ^ this is the 'pr' step: it settles only once the
+     reconciler observes status.targetPR = #4821

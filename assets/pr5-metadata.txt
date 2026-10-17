@@ -1,0 +1,12 @@
+┌─ PULL REQUEST #5 · CODE REVIEW ─────────────────────────┐
+│ repo     mikelear/leartech-blockchain-api                │
+│ title    read-endpoints                                  │
+│ branch   feat/read-endpoints  ->  main                   │
+│ state    MERGED                                          │
+│ plan     blockchain-service-endpoints                    │
+│ step     pr / read-endpoints                             │
+│ agentrun blockchain-service-endpoints-read-endpoints     │
+│ agent    leartech-agent-go                               │
+│ status.targetPR  5   ← set via adopt_pr                  │
+└─────────────────────────────────────────────────────────┘
+   ^ same PR #5 the Terminal reported as steps[].pr

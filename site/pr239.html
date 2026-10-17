@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ship Proven — the Terminal, the PR, and its checks</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --line:#30363d;
+    --fg:#e6edf3; --dim:#8b949e; --mut:#7d8590;
+    --green:#3fb950; --red:#f85149; --yellow:#d29922; --purple:#bc8cff;
+    --blue:#58a6ff; --term:#0b0f14;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 20px 60px}
+  .eyebrow{color:var(--purple);font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:12px}
+  h1{font-size:30px;line-height:1.15;margin:.3em 0 .15em}
+  .sub{color:var(--dim);font-size:17px;margin:0 0 24px;max-width:760px}
+
+  /* ---- the "video" frame: panels + overlay share one positioned stage ---- */
+  .movie{position:relative;border:1px solid var(--line);border-radius:14px;
+    background:#090c10;padding:18px;overflow:hidden}
+  .stage{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+  @media (max-width:900px){.stage{grid-template-columns:1fr}}
+
+  .pane{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel);
+    transition:box-shadow .4s,filter .4s,transform .4s}
+  .pane h2{margin:0;font-size:13px;color:var(--mut);font-weight:600;
+    padding:10px 14px;border-bottom:1px solid var(--line);background:#11161d;
+    display:flex;align-items:center;gap:8px}
+  .dots{display:flex;gap:6px;margin-right:6px}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .r{background:#ff5f56}.y{background:#ffbd2e}.g{background:#27c93f}
+
+  /* dim everything, spotlight the active region */
+  .movie.playing .pane{filter:brightness(.55)}
+  .movie.playing .pane.active{filter:brightness(1);box-shadow:0 0 0 2px var(--purple),0 14px 50px rgba(188,140,255,.25)}
+  .row.spot,.hd.spot,.grp.spot+.row{outline:0}
+  .spot{background:rgba(188,140,255,.14);border-radius:6px;
+    box-shadow:0 0 0 1px rgba(188,140,255,.5) inset}
+  /* cross-screen annotation pins */
+  .pinlayer{position:absolute;inset:0;pointer-events:none;z-index:4}
+  .pin{position:absolute;max-width:230px;opacity:0;transform:translateY(6px);transition:opacity .35s,transform .35s}
+  .pin.show{opacity:1;transform:none}
+  .pin .bubble{background:#1b1030;border:1px solid var(--purple);border-radius:9px;padding:8px 10px;
+    font-size:12px;line-height:1.4;color:#e9ddff;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  .pin .bubble b{color:#fff}
+  .pin .bubble code{background:#2a1b45;padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:.9em}
+  .pin .arrow{position:absolute;width:0;height:0}
+  .pin.left .arrow{top:14px;left:-9px;border:9px solid transparent;border-right-color:var(--purple)}
+  .pin.right .arrow{top:14px;right:-9px;border:9px solid transparent;border-left-color:var(--purple)}
+  .pin.up .arrow{left:22px;top:-9px;border:9px solid transparent;border-bottom-color:var(--purple)}
+  .pin.down .arrow{left:22px;bottom:-9px;border:9px solid transparent;border-top-color:var(--purple)}
+  .ring{box-shadow:0 0 0 2px var(--purple),0 0 22px rgba(188,140,255,.45)!important;border-radius:6px}
+
+  /* terminal */
+  .term{background:var(--term);font-family:var(--mono);font-size:13px;line-height:1.7;
+    padding:16px;white-space:pre-wrap;color:#cdd9e5;min-height:560px}
+  .term .p{color:var(--green)} .term .c{color:#e6edf3} .term .o{color:var(--mut)}
+  .term .k{color:var(--blue)} .term .n{color:var(--yellow)} .term .note{color:var(--purple)}
+  .line{display:block;border-radius:6px;padding:0 4px;margin:0 -4px}
+
+  /* github PR card */
+  .gh .hd{padding:16px;border-bottom:1px solid var(--line)}
+  .gh .title{font-size:19px;font-weight:600;margin:0 0 8px}
+  .gh .title .num{color:var(--mut);font-weight:400}
+  .state{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+    color:#fff;padding:4px 10px;border-radius:999px;background:#238636}
+  .gh .meta{color:var(--dim);font-size:13px;margin-top:10px}
+  .gh .meta b{color:var(--fg);font-weight:600}
+  .branch{font-family:var(--mono);background:#1f2630;padding:1px 6px;border-radius:5px;font-size:12px}
+  .checkhdr{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+  .checkhdr .sum{font-weight:600}.checkhdr .muted{color:var(--dim);font-weight:400;font-size:13px}
+  .row{display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid #22272e;font-size:13px}
+  .row .nm{font-family:var(--mono)} .row .st{margin-left:auto;color:var(--dim);font-size:12px}
+  .ok{color:var(--green)}.pend{color:var(--yellow)}
+  .grp{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:10px 16px 2px}
+
+  /* ---- narration overlay ---- */
+  .caption{position:absolute;left:18px;right:18px;bottom:18px;
+    background:rgba(13,17,23,.92);border:1px solid var(--line);border-left:3px solid var(--purple);
+    border-radius:10px;padding:14px 16px;backdrop-filter:blur(6px);
+    opacity:0;transform:translateY(8px);transition:opacity .4s,transform .4s;pointer-events:none}
+  .movie.playing .caption.show{opacity:1;transform:none}
+  .caption .step{color:var(--purple);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .caption .txt{margin-top:3px;font-size:15px;line-height:1.5}
+  .caption code{background:#1f2630;padding:1px 6px;border-radius:5px;font-family:var(--mono);font-size:.85em}
+
+  /* ---- controls ---- */
+  .bar{display:flex;align-items:center;gap:14px;margin-top:14px}
+  .btn{background:var(--panel);color:var(--fg);border:1px solid var(--line);width:44px;height:44px;
+    border-radius:50%;font-size:18px;cursor:pointer;display:grid;place-items:center}
+  .btn:hover{border-color:var(--purple)}
+  .track{flex:1;height:6px;background:#22272e;border-radius:999px;position:relative;cursor:pointer}
+  .fill{position:absolute;left:0;top:0;bottom:0;background:var(--purple);border-radius:999px;width:0}
+  .ticks{position:absolute;inset:0;display:flex;justify-content:space-between}
+  .time{color:var(--mut);font-size:12px;font-variant-numeric:tabular-nums;min-width:74px;text-align:right}
+  footer{color:var(--mut);font-size:12px;margin-top:28px;border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Ship Proven · how a PR is born</div>
+  <h1>The Terminal created this PR — and the step on it tells you why</h1>
+  <p class="sub">Press play. The narration walks the screens left to right and spotlights what it’s
+    talking about. Everything is the same object: PR&nbsp;#239.</p>
+
+  <div class="movie" id="movie">
+    <div class="stage">
+      <!-- TERMINAL -->
+      <div class="pane" id="pane-term">
+        <h2><span class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></span>
+          ship-proven shell</h2>
+        <div class="term">
+<span class="line" data-k="t1"><span class="p">❯</span> <span class="c">run plan fix-maestro-announce-audience</span></span>
+<span class="line" data-k="t1"><span class="o">step   </span> <span class="k">maestro-audience</span>  <span class="o">(kind: pr)</span></span>
+<span class="line" data-k="t1"><span class="o">agent  </span> leartech-agent-go · repo leartech-orchestrator-controller</span>
+
+<span class="line" data-k="t2"><span class="o">… agent diagnoses the stall:</span></span>
+<span class="line" data-k="t2"><span class="o">  every plan stalled at step 1 — maestro now returns </span><span class="n">401</span></span>
+<span class="line" data-k="t2"><span class="o">  on announce; the token carries no </span><span class="n">aud=leartech-maestro-service</span><span class="o">.</span></span>
+
+<span class="line" data-k="t3"><span class="o">… writes the fix + a proven-by test, pushes, opens PR</span></span>
+
+<span class="line" data-k="t4"><span class="p">❯</span> <span class="c">get_plan fix-maestro-announce-audience</span></span>
+<span class="line" data-k="t4">  step <span class="k">maestro-audience</span></span>
+<span class="line" data-k="t4">    kind       <span class="c">pr</span></span>
+<span class="line" data-k="t4">    pr         <span class="n">239</span>      <span class="o">← the step produced this PR</span></span>
+<span class="line" data-k="t4">    headBranch fix/maestro-announce-audience</span>
+<span class="line" data-k="t4">    stepPhase  AwaitingReview</span>
+
+<span class="line" data-k="t5"><span class="note">↳ a 'pr' step's deliverable IS a pull request. It won't</span></span>
+<span class="line" data-k="t5"><span class="note">  settle until #239 is merged and the reconciler sees</span></span>
+<span class="line" data-k="t5"><span class="note">  status.targetPR.</span></span>
+</div>
+      </div>
+
+      <!-- GITHUB PR -->
+      <div class="pane gh" id="pane-gh">
+        <h2>github.com · leartech-orchestrator-controller</h2>
+        <div class="hd" data-k="g1">
+          <p class="title">fix(maestro): announce with aud=leartech-maestro-service
+            <span class="num">#239</span></p>
+          <span class="state">⟲ Open</span>
+          <div class="meta"><b>mikelear</b> wants to merge <b>1 commit</b> into
+            <span class="branch">main</span> from
+            <span class="branch">fix/maestro-announce-audience</span></div>
+          <div class="meta">2 files changed · <span class="ok">+26</span>
+            <span style="color:var(--red)">−1</span> · head <span class="branch">be8dffc</span></div>
+        </div>
+
+        <div class="checkhdr" data-k="g2">
+          <span class="pend">●</span><span class="sum">Some checks haven’t completed yet</span>
+          <span class="muted">— 17 successful, 2 pending</span>
+        </div>
+
+        <div class="grp">gcp</div>
+        <div class="row" data-k="g2"><span class="ok">✔</span><span class="nm">gcp/lint</span><span class="st">Successful</span></div>
+        <div class="row" data-k="g2"><span class="ok">✔</span><span class="nm">gcp/test</span><span class="st">Successful</span></div>
+        <div class="row" data-k="g2"><span class="ok">✔</span><span class="nm">gcp/ai-review</span><span class="st">Successful</span></div>
+        <div class="row" data-k="g2"><span class="ok">✔</span><span class="nm">gcp/end2end</span><span class="st">Successful</span></div>
+        <div class="row" data-k="g2"><span class="ok">✔</span><span class="nm">gcp/govulncheck</span><span class="st">Successful</span></div>
+        <div class="row" data-k="g2"><span class="ok">✔</span><span class="nm">gcp/security-scan</span><span class="st">Successful</span></div>
+        <div class="row" data-k="g2"><span class="ok">✔</span><span class="nm">gcp/pr</span><span class="st">Successful</span></div>
+
+        <div class="grp">az</div>
+        <div class="row" data-k="g2"><span class="ok">✔</span><span class="nm">az/lint</span><span class="st">Successful</span></div>
+        <div class="row" data-k="g3"><span class="pend">●</span><span class="nm">az/test</span><span class="st">Pending — go-test running</span></div>
+        <div class="row" data-k="g2"><span class="ok">✔</span><span class="nm">az/ai-review</span><span class="st">Successful</span></div>
+        <div class="row" data-k="g2"><span class="ok">✔</span><span class="nm">az/end2end</span><span class="st">Successful</span></div>
+        <div class="row" data-k="g2"><span class="ok">✔</span><span class="nm">az/security-scan</span><span class="st">Successful</span></div>
+        <div class="row" data-k="g2"><span class="ok">✔</span><span class="nm">az/pr</span><span class="st">Successful</span></div>
+
+        <div class="grp">merge</div>
+        <div class="row" data-k="g3"><span class="pend">●</span><span class="nm">Lighthouse Merge Status</span>
+          <span class="st">Not mergeable — az/test not yet succeeded</span></div>
+      </div>
+    </div>
+
+    <!-- narration overlay -->
+    <div class="caption" id="caption">
+      <div class="step" id="cap-step"></div>
+      <div class="txt" id="cap-txt"></div>
+    </div>
+    <div class="pinlayer" id="pinlayer"></div>
+  </div>
+
+  <!-- controls -->
+  <div class="bar">
+    <button class="btn" id="play">▶</button>
+    <div class="track" id="track"><div class="fill" id="fill"></div></div>
+    <div class="time" id="time">0:00 / 0:00</div>
+  </div>
+
+  <div style="display:flex;gap:14px;margin:26px 0 0">
+    <a href="plan-dag.html" style="color:#58a6ff;text-decoration:none;font-size:14px;border:1px solid #30363d;padding:8px 14px;border-radius:8px">Video 2 · a plan across three screens →</a>
+  </div>
+  <footer>Static page, self-playing narration. Check list + metadata captured live from PR #239 via
+    <code>gh</code> on 2026-10-17; the terminal panel reconstructs the plan step that opened it.</footer>
+</div>
+
+<script>
+// ---- the "film": each beat = duration + active pane + spotlight keys + caption ----
+const BEATS = [
+  {d:5, pane:'term', keys:['t1'], step:'1 · the Terminal starts the work',
+   txt:'A plan step of <code>kind: pr</code> runs an agent inside the repo. Its only deliverable is one pull request.'},
+  {d:6, pane:'term', keys:['t2'], step:'2 · why there is anything to fix',
+   txt:'The agent finds the stall: maestro now <b>401</b>s the announce because the token lacks <code>aud=leartech-maestro-service</code>.',
+   pin:{target:'g1',side:'left',html:'<b>Becomes this →</b> PR #239 on GitHub'}},
+  {d:4, pane:'term', keys:['t3'], step:'3 · it writes the fix',
+   txt:'Fix plus a <code>proven-by</code> test, pushed to a branch, and a PR is opened.'},
+  {d:6, pane:'term', keys:['t4'], step:'4 · the step becomes PR #239',
+   txt:'In the Terminal, <code>steps[].pr = 239</code>. That number is the link to the screen on the right.',
+   pin:{target:'g1',side:'left',html:'<b>Same #239 →</b> title &amp; branch match'}},
+  {d:5, pane:'gh', keys:['g1'], step:'5 · the same object on GitHub',
+   txt:'PR #239 — same title, same branch, head <code>be8dffc</code>. One object, two screens.',
+   pin:{target:'t4',side:'right',html:'<b>← Opened by</b> the <code>pr</code> step'}},
+  {d:6, pane:'gh', keys:['g2'], step:'6 · checks run on the head SHA',
+   txt:'Every gcp/az check runs against <code>be8dffc</code> — the head shown on the PR. Review and gates share that SHA.',
+   pin:{target:'g1',side:'left',html:'<b>These run on →</b> head <code>be8dffc</code>'}},
+  {d:6, pane:'gh', keys:['g3'], step:'7 · why the step is still waiting',
+   txt:'<code>az/test</code> is pending, so Lighthouse says not-mergeable — the <code>pr</code> step stays <b>AwaitingReview</b>.',
+   pin:{target:'t4',side:'right',html:'<b>← Still</b> AwaitingReview in the plan'}},
+  {d:5, pane:'term', keys:['t5'], step:'8 · it settles on merge',
+   txt:'Once #239 merges and the reconciler sees <code>status.targetPR</code>, the step goes green. That closes the loop.',
+   pin:{target:'g3',side:'left',html:'<b>Unblocks on →</b> az/test + merge-status'}},
+];
+const TOTAL = BEATS.reduce((s,b)=>s+b.d,0);
+
+const movie=document.getElementById('movie'), cap=document.getElementById('caption');
+const capStep=document.getElementById('cap-step'), capTxt=document.getElementById('cap-txt');
+const fill=document.getElementById('fill'), timeEl=document.getElementById('time'), playBtn=document.getElementById('play');
+const panes={term:document.getElementById('pane-term'), gh:document.getElementById('pane-gh')};
+
+let t=0, playing=false, raf=null, last=null;
+const fmt=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+
+function beatAt(time){let acc=0;for(const b of BEATS){if(time<acc+b.d)return {b,into:time-acc};acc+=b.d;}return {b:BEATS[BEATS.length-1],into:BEATS[BEATS.length-1].d};}
+
+function render(){
+  const {b}=beatAt(t);
+  movie.classList.toggle('playing', playing || t>0);
+  for(const k in panes) panes[k].classList.toggle('active', panes[k]===panes[b.pane]);
+  document.querySelectorAll('.spot').forEach(e=>e.classList.remove('spot'));
+  b.keys.forEach(k=>document.querySelectorAll(`[data-k="${k}"]`).forEach(e=>e.classList.add('spot')));
+  placePin(b.pin);
+  capStep.innerHTML=b.step; capTxt.innerHTML=b.txt; cap.classList.add('show');
+  fill.style.width=(100*t/TOTAL)+'%';
+  timeEl.textContent=`${fmt(t)} / ${fmt(TOTAL)}`;
+}
+function tick(ts){
+  if(!playing)return; if(last==null)last=ts;
+  t+=(ts-last)/1000; last=ts;
+  if(t>=TOTAL){t=TOTAL; render(); pause(); upNext(); return;}
+  render(); raf=requestAnimationFrame(tick);
+}
+function play(){ if(t>=TOTAL)t=0; playing=true; last=null; playBtn.textContent='⏸';
+  raf=requestAnimationFrame(tick); render(); }
+function pause(){ playing=false; playBtn.textContent='▶'; cancelAnimationFrame(raf); }
+
+let advancing=false;
+function upNext(){
+  if(advancing) return; advancing=true;
+  const NEXT='plan-dag.html?autoplay=1';
+  let n=5;
+  const ov=document.createElement('div');
+  ov.style.cssText='position:absolute;inset:0;display:grid;place-items:center;'
+    +'background:rgba(9,12,16,.86);backdrop-filter:blur(4px);z-index:5;text-align:center';
+  ov.innerHTML='<div><div style="color:#bc8cff;font-size:12px;font-weight:700;'
+    +'text-transform:uppercase;letter-spacing:.06em">Up next</div>'
+    +'<div style="font-size:22px;font-weight:600;margin:6px 0 2px">Video 2 · a plan across three screens</div>'
+    +'<div id="cd" style="color:#8b949e;margin-top:10px">starting in '+n+'s…</div>'
+    +'<div style="margin-top:16px;display:flex;gap:10px;justify-content:center">'
+    +'<button id="go" style="background:#bc8cff;color:#0d1117;border:0;padding:9px 16px;'
+    +'border-radius:8px;font:inherit;font-weight:600;cursor:pointer">Play now</button>'
+    +'<button id="stay" style="background:#161b22;color:#e6edf3;border:1px solid #30363d;'
+    +'padding:9px 16px;border-radius:8px;font:inherit;cursor:pointer">Stay here</button></div></div>';
+  movie.appendChild(ov);
+  const go=()=>{clearInterval(iv);location.href=NEXT;};
+  const iv=setInterval(()=>{n--;const cd=document.getElementById('cd');
+    if(cd)cd.textContent='starting in '+n+'s…'; if(n<=0)go();},1000);
+  ov.querySelector('#go').onclick=go;
+  ov.querySelector('#stay').onclick=()=>{clearInterval(iv);ov.remove();advancing=false;};
+}
+// autoplay if we arrived via an auto-advance link
+if(new URLSearchParams(location.search).get('autoplay')==='1'){ play(); }
+
+const pinlayer=document.getElementById('pinlayer');
+function placePin(spec){
+  pinlayer.innerHTML='';
+  document.querySelectorAll('.ring').forEach(e=>e.classList.remove('ring'));
+  if(!spec) return;
+  const tgt=document.querySelector(`[data-k="${spec.target}"]`);
+  if(!tgt) return;
+  tgt.classList.add('ring');
+  const mrect=movie.getBoundingClientRect(), trect=tgt.getBoundingClientRect();
+  const pin=document.createElement('div'); pin.className='pin '+spec.side;
+  pin.innerHTML=`<div class="bubble">${spec.html}</div><div class="arrow"></div>`;
+  pinlayer.appendChild(pin);
+  const pr=pin.getBoundingClientRect();
+  let x, y=trect.top-mrect.top + trect.height/2 - 16;
+  if(spec.side==='left') x=trect.left-mrect.left - pr.width - 14;
+  else if(spec.side==='right') x=trect.right-mrect.left + 14;
+  else { x=trect.left-mrect.left; y=trect.top-mrect.top - pr.height - 14; }
+  x=Math.max(8,Math.min(x, mrect.width - pr.width - 8));
+  y=Math.max(8,Math.min(y, mrect.height - pr.height - 8));
+  pin.style.left=x+'px'; pin.style.top=y+'px';
+  requestAnimationFrame(()=>pin.classList.add('show'));
+}
+playBtn.onclick=()=>playing?pause():play();
+document.getElementById('track').onclick=e=>{
+  const r=e.currentTarget.getBoundingClientRect();
+  t=Math.max(0,Math.min(TOTAL,(e.clientX-r.left)/r.width*TOTAL)); render();
+};
+render();
+</script>
+</body>
+</html>

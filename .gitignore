@@ -1,0 +1,9 @@
+# local dev
+.DS_Store
+/tmp/
+*.log
+
+# rendered demo output (regenerate with OBS/ffmpeg; not source)
+render/
+*.mp4
+*.mkv

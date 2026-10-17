@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ship Proven — a gate catches a mistake</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--line:#30363d;--fg:#e6edf3;--dim:#8b949e;--mut:#7d8590;
+    --green:#3fb950;--red:#f85149;--yellow:#d29922;--purple:#bc8cff;--blue:#58a6ff;--term:#0b0f14;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 20px 60px}
+  .eyebrow{color:var(--purple);font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:12px}
+  h1{font-size:30px;line-height:1.15;margin:.3em 0 .15em}
+  .sub{color:var(--dim);font-size:17px;margin:0 0 24px;max-width:820px}
+  a.back{color:var(--blue);text-decoration:none;font-size:14px}
+  .movie{position:relative;border:1px solid var(--line);border-radius:14px;background:#090c10;padding:18px;overflow:hidden;margin-top:14px}
+  .stage{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:16px;align-items:start}
+  @media(max-width:1040px){.stage{grid-template-columns:1fr}}
+  .pane{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel);transition:filter .4s,box-shadow .4s}
+  .pane h2{margin:0;font-size:12.5px;color:var(--mut);font-weight:600;padding:10px 14px;border-bottom:1px solid var(--line);background:#11161d;display:flex;gap:8px;align-items:center}
+  .dots{display:flex;gap:6px}.dot{width:11px;height:11px;border-radius:50%}.r{background:#ff5f56}.y{background:#ffbd2e}.g{background:#27c93f}
+  .movie.playing .pane{filter:brightness(.5)}
+  .movie.playing .pane.active{filter:brightness(1);box-shadow:0 0 0 2px var(--purple),0 14px 50px rgba(188,140,255,.25)}
+  .spot{background:rgba(188,140,255,.14);box-shadow:0 0 0 1px rgba(188,140,255,.5) inset;border-radius:6px}
+  .term{background:var(--term);font-family:var(--mono);font-size:12.5px;line-height:1.65;padding:14px;white-space:pre-wrap;color:#cdd9e5;min-height:520px}
+  .term .p{color:var(--green)}.term .c{color:#e6edf3}.term .o{color:var(--mut)}.term .k{color:var(--blue)}.term .n{color:var(--yellow)}.term .bad{color:var(--red)}.term .ok{color:var(--green)}
+  .line{display:block;border-radius:6px;padding:0 4px;margin:0 -4px}
+  .gh .hd{padding:14px;border-bottom:1px solid var(--line)}
+  .gh .title{font-size:16px;font-weight:600;margin:0 0 8px}.gh .title .num{color:var(--mut);font-weight:400}
+  .state{display:inline-flex;gap:6px;font-size:12px;font-weight:600;color:#fff;padding:4px 10px;border-radius:999px}
+  .state.closed{background:#da3633}
+  .gh .meta{color:var(--dim);font-size:12.5px;margin-top:9px}.gh .meta b{color:var(--fg)}
+  .branch{font-family:var(--mono);background:#1f2630;padding:1px 6px;border-radius:5px;font-size:12px}
+  .grp{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:10px 14px 2px}
+  .row{display:flex;align-items:center;gap:9px;padding:7px 14px;border-bottom:1px solid #22272e;font-size:12.5px}
+  .row .nm{font-family:var(--mono)}.row .st{margin-left:auto;color:var(--dim);font-size:11.5px}
+  .ok{color:var(--green)}.bad{color:var(--red)}
+  .diag{padding:14px;font-size:13px}
+  .diag .h{font-weight:600;margin:0 0 8px}
+  .diag pre{background:#0b0f14;border:1px solid var(--line);border-radius:8px;padding:10px;font-family:var(--mono);font-size:12px;color:#e6edf3;overflow:auto;margin:0}
+  .diag .bad{color:var(--red)}.diag .note{color:var(--purple);margin-top:12px;font-size:12.5px}
+  .pinlayer{position:absolute;inset:0;pointer-events:none;z-index:4}
+  .pin{position:absolute;max-width:220px;opacity:0;transform:translateY(6px);transition:.35s}.pin.show{opacity:1;transform:none}
+  .pin .bubble{background:#1b1030;border:1px solid var(--purple);border-radius:9px;padding:8px 10px;font-size:12px;color:#e9ddff;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  .pin .bubble code{background:#2a1b45;padding:1px 5px;border-radius:4px;font-family:var(--mono)}
+  .ring{box-shadow:0 0 0 2px var(--purple),0 0 20px rgba(188,140,255,.45)!important;border-radius:6px}
+  .caption{position:absolute;left:18px;right:18px;bottom:18px;background:rgba(13,17,23,.93);border:1px solid var(--line);border-left:3px solid var(--purple);border-radius:10px;padding:14px 16px;backdrop-filter:blur(6px);opacity:0;transform:translateY(8px);transition:.4s;pointer-events:none;z-index:5}
+  .movie.playing .caption.show{opacity:1;transform:none}
+  .caption .step{color:var(--purple);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .caption .txt{margin-top:3px;font-size:15px}
+  code{background:#1f2630;padding:1px 6px;border-radius:5px;font-family:var(--mono);font-size:.85em}
+  .bar{display:flex;align-items:center;gap:14px;margin-top:14px}
+  .btn{background:var(--panel);color:var(--fg);border:1px solid var(--line);width:44px;height:44px;border-radius:50%;font-size:18px;cursor:pointer;display:grid;place-items:center}
+  .track{flex:1;height:6px;background:#22272e;border-radius:999px;position:relative;cursor:pointer}
+  .fill{position:absolute;left:0;top:0;bottom:0;background:var(--purple);border-radius:999px;width:0}
+  .time{color:var(--mut);font-size:12px;min-width:74px;text-align:right}
+  .nav{display:flex;gap:14px;margin:24px 0 0}.nav a{color:var(--blue);text-decoration:none;font-size:14px;border:1px solid var(--line);padding:8px 14px;border-radius:8px}
+  footer{color:var(--mut);font-size:12px;margin-top:26px;border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">← demo reel</a>
+  <div class="eyebrow" style="margin-top:12px">Ship Proven · the safety story</div>
+  <h1>A gate catches a mistake — and the PR never merges</h1>
+  <p class="sub">The reassuring half of autonomy: when an agent’s PR doesn’t actually fix the
+    problem, the deterministic gate stays red and the PR is closed un-merged. Nothing bad ships.
+    Real plan: <code>scratch-diagnose-a-check-it-did-not-break</code>.</p>
+
+  <div class="movie" id="movie">
+    <div class="stage">
+      <div class="pane" id="pane-term">
+        <h2><span class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></span> ship-proven shell</h2>
+        <div class="term">
+<span class="line" data-k="t1"><span class="p">❯</span> <span class="c">get_plan scratch-diagnose-a-check-it-did-not-break</span></span>
+<span class="line" data-k="t1"><span class="o">plan  </span> scratch-diagnose-a-check-it-did-not-break</span>
+<span class="line" data-k="t1"><span class="o">phase </span> <span class="bad">Failed</span></span>
+
+<span class="line" data-k="t2"><span class="o">step </span><span class="k">diagnose-and-fix-the-red-gate</span></span>
+<span class="line" data-k="t2">  kind        pr</span>
+<span class="line" data-k="t2">  agentPhase  <span class="ok">Succeeded</span>  <span class="o">(agent finished its run)</span></span>
+<span class="line" data-k="t3">  stepPhase   <span class="bad">Failed</span>     <span class="o">(but the step did NOT)</span></span>
+<span class="line" data-k="t3">  pr          <span class="n">3</span></span>
+<span class="line" data-k="t3">  prOutcome   <span class="bad">closed_unmerged</span></span>
+<span class="line" data-k="t3">  headBranch  fix/the-gate-was-already-red</span>
+
+<span class="line" data-k="t4"><span class="o">— the agent THOUGHT it was done, but the gate</span></span>
+<span class="line" data-k="t4"><span class="o">  disagreed. agentPhase≠stepPhase is the tell.</span></span>
+
+<span class="line" data-k="t5"><span class="note">↳ a 'pr' step only Succeeds if the PR MERGES.</span></span>
+<span class="line" data-k="t5"><span class="note">  Red gate → not mergeable → closed → step Failed.</span></span>
+<span class="line" data-k="t5"><span class="note">  The platform refused to ship a non-fix.</span></span>
+</div>
+      </div>
+
+      <div class="pane gh" id="pane-gh">
+        <h2>github.com · leartech-agent-scratch-go</h2>
+        <div class="hd" data-k="g1">
+          <p class="title">diagnose-and-fix-the-red-gate <span class="num">#3</span></p>
+          <span class="state closed">⊘ Closed</span>
+          <div class="meta"><b>closed without merging</b> · from
+            <span class="branch">fix/the-gate-was-already-red</span></div>
+          <div class="meta">agent leartech-agent-go · agentPhase Succeeded</div>
+        </div>
+        <div class="grp">checks</div>
+        <div class="row" data-k="g2"><span class="ok">✔</span><span class="nm">lint</span><span class="st">Successful</span></div>
+        <div class="row" data-k="g2"><span class="ok">✔</span><span class="nm">build</span><span class="st">Successful</span></div>
+        <div class="row" data-k="g3"><span class="bad">✘</span><span class="nm">test</span><span class="st">Failed — the gate stayed red</span></div>
+        <div class="grp">merge</div>
+        <div class="row" data-k="g3"><span class="bad">✘</span><span class="nm">Merge Status</span><span class="st">Not mergeable</span></div>
+      </div>
+
+      <div class="pane" id="pane-why">
+        <h2>why the gate held</h2>
+        <div class="diag">
+          <p class="h" data-k="w1">The brief was a trap</p>
+          <pre data-k="w1">brief: "diagnose-and-fix-the-red-gate"
+
+reality: the gate was <span class="bad">already red</span>
+         for a reason the PR did
+         not actually address.</pre>
+          <p class="h" style="margin-top:14px" data-k="w2">So the test gate stayed red</p>
+          <pre data-k="w2">$ go test ./...
+--- FAIL: TestTheThing
+<span class="bad">FAIL</span>  the behaviour is still wrong</pre>
+          <div class="note" data-k="w3">Deterministic, not vibes: the same
+            <code>test</code> + <code>comment-gate</code> that pass good PRs
+            fail this one. No human had to catch it.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pinlayer" id="pinlayer"></div>
+    <div class="caption" id="caption"><div class="step" id="cap-step"></div><div class="txt" id="cap-txt"></div></div>
+  </div>
+
+  <div class="bar">
+    <button class="btn" id="play">▶</button>
+    <div class="track" id="track"><div class="fill" id="fill"></div></div>
+    <div class="time" id="time">0:00 / 0:00</div>
+  </div>
+
+  <div class="nav">
+    <a href="plan-dag.html">← Video 2</a>
+    <a href="bootstrap.html?autoplay=1">Video 5 · nothing → a running service →</a>
+  </div>
+  <footer>Static page. Data captured live from plan <code>scratch-diagnose-a-check-it-did-not-break</code> (PR #3, closed_unmerged) on 2026-10-17.</footer>
+</div>
+
+<script>
+const BEATS=[
+ {d:4,pane:'term',keys:['t1'],step:'1 · a failed plan',txt:'The plan is <b>Failed</b>. Good — that’s the system telling the truth, not hiding it.'},
+ {d:5,pane:'term',keys:['t2'],step:'2 · the agent finished',txt:'<code>agentPhase = Succeeded</code>: the agent ran to completion and opened a PR. It believed it was done.',pin:{target:'g1',side:'left',html:'<b>Its PR →</b> #3'}},
+ {d:6,pane:'term',keys:['t3'],step:'3 · but the step failed',txt:'<code>stepPhase = Failed</code>, <code>prOutcome = closed_unmerged</code>. Agent-done and step-done are not the same thing.',pin:{target:'g3',side:'left',html:'<b>Because →</b> test gate is red'}},
+ {d:5,pane:'gh',keys:['g1'],step:'4 · the PR on GitHub',txt:'PR #3 is <b>Closed</b>, never merged. The branch exists; the change did not ship.',pin:{target:'t3',side:'right',html:'<b>← Terminal:</b> closed_unmerged'}},
+ {d:6,pane:'gh',keys:['g2','g3'],step:'5 · the gate that held',txt:'lint and build pass, but <code>test</code> fails — so Merge Status is not-mergeable. One red gate is enough.'},
+ {d:6,pane:'why',keys:['w1','w2','w3'],step:'6 · deterministic, not vibes',txt:'The same gates that pass good PRs fail this one. The platform refused to ship a non-fix, with no human in the loop.',pin:{target:'g3',side:'left',html:'<b>This →</b> kept it out of main'}},
+];
+const TOTAL=BEATS.reduce((s,b)=>s+b.d,0);
+const movie=document.getElementById('movie'),cap=document.getElementById('caption');
+const capStep=document.getElementById('cap-step'),capTxt=document.getElementById('cap-txt');
+const fill=document.getElementById('fill'),timeEl=document.getElementById('time'),playBtn=document.getElementById('play');
+const panes={term:document.getElementById('pane-term'),gh:document.getElementById('pane-gh'),why:document.getElementById('pane-why')};
+const pinlayer=document.getElementById('pinlayer');
+let t=0,playing=false,raf=null,last=null;
+const fmt=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+function beatAt(x){let a=0;for(const b of BEATS){if(x<a+b.d)return b;a+=b.d;}return BEATS[BEATS.length-1];}
+function placePin(spec){
+  pinlayer.innerHTML='';document.querySelectorAll('.ring').forEach(e=>e.classList.remove('ring'));
+  if(!spec)return;const tgt=document.querySelector(`[data-k="${spec.target}"]`);if(!tgt)return;
+  tgt.classList.add('ring');const m=movie.getBoundingClientRect(),r=tgt.getBoundingClientRect();
+  const pin=document.createElement('div');pin.className='pin';pin.innerHTML=`<div class="bubble">${spec.html}</div>`;pinlayer.appendChild(pin);
+  const pr=pin.getBoundingClientRect();let x,y=r.top-m.top+r.height/2-16;
+  if(spec.side==='left')x=r.left-m.left-pr.width-14;else x=r.right-m.left+14;
+  x=Math.max(8,Math.min(x,m.width-pr.width-8));y=Math.max(8,Math.min(y,m.height-pr.height-8));
+  pin.style.left=x+'px';pin.style.top=y+'px';requestAnimationFrame(()=>pin.classList.add('show'));
+}
+function render(){const b=beatAt(t);
+  movie.classList.toggle('playing',playing||t>0);
+  for(const k in panes)panes[k].classList.toggle('active',panes[k]===panes[b.pane]);
+  document.querySelectorAll('.spot').forEach(e=>e.classList.remove('spot'));
+  b.keys.forEach(k=>document.querySelectorAll(`[data-k="${k}"]`).forEach(e=>e.classList.add('spot')));
+  placePin(b.pin);capStep.innerHTML=b.step;capTxt.innerHTML=b.txt;cap.classList.add('show');
+  fill.style.width=(100*t/TOTAL)+'%';timeEl.textContent=`${fmt(t)} / ${fmt(TOTAL)}`;}
+function tick(ts){if(!playing)return;if(last==null)last=ts;t+=(ts-last)/1000;last=ts;
+  if(t>=TOTAL){t=TOTAL;render();pause();upNext();return;}render();raf=requestAnimationFrame(tick);}
+function play(){if(t>=TOTAL)t=0;playing=true;last=null;playBtn.textContent='⏸';raf=requestAnimationFrame(tick);render();}
+function pause(){playing=false;playBtn.textContent='▶';cancelAnimationFrame(raf);}
+
+let advancing=false;
+function upNext(){ if(advancing)return; advancing=true; let n=5; const NEXT='bootstrap.html?autoplay=1';
+  const ov=document.createElement('div');
+  ov.style.cssText='position:absolute;inset:0;display:grid;place-items:center;background:rgba(9,12,16,.86);backdrop-filter:blur(4px);z-index:7;text-align:center';
+  ov.innerHTML='<div><div style="color:#bc8cff;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Up next</div><div style="font-size:22px;font-weight:600;margin:6px 0 2px">Video 5 · nothing → a running service</div><div id="cd" style="color:#8b949e;margin-top:10px">starting in '+n+'s…</div><div style="margin-top:16px;display:flex;gap:10px;justify-content:center"><button id="go" style="background:#bc8cff;color:#0d1117;border:0;padding:9px 16px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer">Play now</button><button id="stay" style="background:#161b22;color:#e6edf3;border:1px solid #30363d;padding:9px 16px;border-radius:8px;font:inherit;cursor:pointer">Stay here</button></div></div>';
+  movie.appendChild(ov);
+  const go=()=>{clearInterval(iv);location.href=NEXT;};
+  const iv=setInterval(()=>{n--;const cd=document.getElementById('cd');if(cd)cd.textContent='starting in '+n+'s…';if(n<=0)go();},1000);
+  ov.querySelector('#go').onclick=go; ov.querySelector('#stay').onclick=()=>{clearInterval(iv);ov.remove();advancing=false;};
+}
+playBtn.onclick=()=>playing?pause():play();
+document.getElementById('track').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();t=Math.max(0,Math.min(TOTAL,(e.clientX-r.left)/r.width*TOTAL));render();};
+render();if(new URLSearchParams(location.search).get('autoplay')==='1')play();
+</script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ship Proven — demo reel</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--line:#30363d;--fg:#e6edf3;--dim:#8b949e;--mut:#7d8590;
+    --purple:#bc8cff;--blue:#58a6ff;--green:#3fb950;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1040px;margin:0 auto;padding:56px 20px 80px}
+  .eyebrow{color:var(--purple);font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:12px}
+  h1{font-size:34px;line-height:1.1;margin:.3em 0 .2em}
+  .sub{color:var(--dim);font-size:18px;max-width:720px;margin:0 0 36px}
+  h2{font-size:15px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin:40px 0 14px}
+  .reel{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media (max-width:760px){.reel{grid-template-columns:1fr}}
+  a.card{display:block;text-decoration:none;color:inherit;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;overflow:hidden;transition:border-color .2s,transform .2s}
+  a.card:hover{border-color:var(--purple);transform:translateY(-2px)}
+  .thumb{height:120px;background:
+    repeating-linear-gradient(135deg,#11161d 0 14px,#0d1117 14px 28px);
+    display:flex;align-items:center;justify-content:center;gap:6px;border-bottom:1px solid var(--line)}
+  .mini{width:56px;height:70px;border-radius:5px;border:1px solid var(--line);background:#0b0f14}
+  .mini.active{box-shadow:0 0 0 2px var(--purple)}
+  .card .body{padding:14px 16px}
+  .card h3{margin:0 0 4px;font-size:16px}
+  .card p{margin:0;color:var(--dim);font-size:13px}
+  .tag{display:inline-block;margin-top:10px;font-size:11px;color:#0d1117;background:var(--purple);
+    padding:2px 8px;border-radius:999px;font-weight:600}
+  .feat{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:10px}
+  .f{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .f h4{margin:0 0 6px;font-size:14px}.f p{margin:0;color:var(--dim);font-size:13px}
+  .f .done{color:var(--green);font-size:12px;font-weight:600}
+  .f .idea{color:var(--blue);font-size:12px;font-weight:600}
+  code{background:#1f2630;padding:1px 6px;border-radius:5px;font-family:var(--mono);font-size:.88em}
+  footer{color:var(--mut);font-size:12px;margin-top:48px;border-top:1px solid var(--line);padding-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Ship Proven · demo reel</div>
+  <h1>Self-playing explainer videos, built from real data</h1>
+  <p class="sub">Each “video” is a single HTML page: real screens side by side, a spotlight that moves
+    between them, narration at the bottom, and cross-screen pins that tie it together. They chain
+    automatically. Press play on any one.</p>
+
+  <h2>The reel</h2>
+  <div class="reel">
+    <a class="card" href="pr239.html?autoplay=1">
+      <div class="thumb"><div class="mini active"></div><div class="mini"></div>
+        <div class="mini"></div><div class="mini"></div></div>
+      <div class="body"><h3>1 · One PR, four screens</h3>
+        <p>Terminal → review card → diff → CI gates for PR #239. The head SHA is the thread.</p>
+        <span class="tag">4 panels · pins · auto-advance</span></div>
+    </a>
+    <a class="card" href="plan-dag.html?autoplay=1">
+      <div class="thumb"><div class="mini active"></div><div class="mini"></div><div class="mini"></div></div>
+      <div class="body"><h3>2 · A plan across three screens</h3>
+        <p>A plan DAG, the merged PR it produced, and the verify-release flow it drove.</p>
+        <span class="tag">3 panels · pins · release pipeline</span></div>
+    </a>
+    <a class="card" href="gate-catch.html?autoplay=1">
+      <div class="thumb"><div class="mini active"></div><div class="mini"></div><div class="mini"></div></div>
+      <div class="body"><h3>4 · A gate catches a mistake</h3>
+        <p>An agent’s PR doesn’t really fix it — the test gate stays red and the PR is closed, un-merged.</p>
+        <span class="tag">3 panels · the safety story</span></div>
+    </a>
+    <a class="card" href="bootstrap.html?autoplay=1">
+      <div class="thumb"><div class="mini active"></div><div class="mini"></div><div class="mini"></div></div>
+      <div class="body"><h3>5 · Nothing → a running service</h3>
+        <p>One bootstrap plan: create, register and deploy a service on both GCP and Azure.</p>
+        <span class="tag">3 panels · two clouds</span></div>
+    </a>
+    <a class="card" href="showcase.html">
+      <div class="thumb"><div class="mini"></div><div class="mini active"></div><div class="mini"></div></div>
+      <div class="body"><h3>6 · Feature showcase</h3>
+        <p>Every presentation trick in one page — so you can pick what a real demo should use.</p>
+        <span class="tag">reference</span></div>
+    </a>
+  </div>
+
+  <h2>Features — built &amp; possible</h2>
+  <div class="feat">
+    <div class="f"><h4>Moving spotlight <span class="done">✓ built</span></h4>
+      <p>Dim every panel, brighten the one the narration is on.</p></div>
+    <div class="f"><h4>In-panel highlight <span class="done">✓ built</span></h4>
+      <p>Ring/row-highlight the exact line or check being discussed.</p></div>
+    <div class="f"><h4>Cross-screen pins <span class="done">✓ built</span></h4>
+      <p>Arrow + tooltip on <em>another</em> panel, extra text above the main narration.</p></div>
+    <div class="f"><h4>Auto-advance <span class="done">✓ built</span></h4>
+      <p>“Up next” countdown that plays the following video.</p></div>
+    <div class="f"><h4>Scrubber + chapters <span class="done">✓ built</span></h4>
+      <p>Click the track to jump; each beat is a chapter.</p></div>
+    <div class="f"><h4>Typewriter terminal <span class="idea">◆ demoed in showcase</span></h4>
+      <p>Type commands character-by-character before the output appears.</p></div>
+    <div class="f"><h4>Connector lines <span class="idea">◆ demoed in showcase</span></h4>
+      <p>An animated SVG line drawn from one panel to another, not just a pin.</p></div>
+    <div class="f"><h4>Live→after swap <span class="idea">◆ demoed in showcase</span></h4>
+      <p>Flip a check from <code>pending</code> to <code>merged</code> to show state change.</p></div>
+    <div class="f"><h4>Voiceover track <span class="idea">◆ possible</span></h4>
+      <p>Sync an audio file or the browser speech API to the beats.</p></div>
+    <div class="f"><h4>Export to MP4 <span class="idea">◆ possible</span></h4>
+      <p>Screen-record the page (OBS) or drive it headless for a shareable file.</p></div>
+  </div>
+
+  <footer>All pages are static and self-contained. Data in videos 1–2 was captured live via
+    <code>gh</code> and the plan API on 2026-10-17.</footer>
+</div>
+</body>
+</html>
