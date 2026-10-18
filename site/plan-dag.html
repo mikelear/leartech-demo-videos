@@ -214,7 +214,7 @@
     <button class="btn" id="play">▶</button>
     <div class="track" id="track"><div class="fill" id="fill"></div></div>
     <div class="time" id="time">0:00 / 0:00</div>
-    <button class="voice" id="voice"><span class="d"></span>Voiceover</button>
+    <button class="voice" id="voice"><span class="d"></span>Voiceover (MP3)</button>
   </div>
 
   <div class="nav">
@@ -261,19 +261,38 @@ const BEATS=[
   say:'The other branch, write-endpoints, failed after a retry, so its verify step stays pending and the plan is Failed. One branch shipped, one did not.'},
 ];
 const TOTAL=BEATS.reduce((s,b)=>s+b.d,0);
+const AUDIO_DUR=[4.3, 5.4, 4.2, 6.7, 5.9, 5.2, 7.2, 9.3];           // measured mp3 length per beat (seconds)
+function beatDur(i){ // when the recorded voice is on, never cut a beat short
+  const base=BEATS[i].d;
+  return voiceOn ? Math.max(base, (AUDIO_DUR[i]||0)+0.6) : base;
+}
+function totalDur(){ let s=0; for(let i=0;i<BEATS.length;i++)s+=beatDur(i); return s; }
+function T(){ return totalDur(); }
+
 const movie=document.getElementById('movie'),cap=document.getElementById('caption');
 const capStep=document.getElementById('cap-step'),capTxt=document.getElementById('cap-txt');
 const fill=document.getElementById('fill'),timeEl=document.getElementById('time'),playBtn=document.getElementById('play');
 const panes={term:document.getElementById('pane-term'),gh:document.getElementById('pane-gh'),rel:document.getElementById('pane-rel')};
 let t=0,playing=false,raf=null,last=null,voiceOn=false,spokenBeat=-1;
 const fmt=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
-function beatAt(x){let a=0;for(const b of BEATS){if(x<a+b.d)return b;a+=b.d;}return BEATS[BEATS.length-1];}
-function beatIdx(x){let a=0;for(let i=0;i<BEATS.length;i++){if(x<a+BEATS[i].d)return i;a+=BEATS[i].d;}return BEATS.length-1;}
-function speak(i){ if(!voiceOn||!('speechSynthesis'in window))return; if(i===spokenBeat)return; spokenBeat=i;
-  window.speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(BEATS[i].say||BEATS[i].txt.replace(/<[^>]+>/g,''));
-  u.rate=1.0;u.pitch=1.0;window.speechSynthesis.speak(u); }
-function beatIdx2(x){let a=0;for(let i=0;i<BEATS.length;i++){if(x<a+BEATS[i].d)return i;a+=BEATS[i].d;}return BEATS.length-1;}
+function beatAt(x){let a=0;for(let i=0;i<BEATS.length;i++){if(x<a+beatDur(i))return BEATS[i];a+=beatDur(i);}return BEATS[BEATS.length-1];}
+function beatIdx(x){let a=0;for(let i=0;i<BEATS.length;i++){if(x<a+beatDur(i))return i;a+=beatDur(i);}return BEATS.length-1;}
+// Voiceover: prefer a pre-rendered MP3 per beat (audio/v2-beatNN.mp3);
+// fall back to the browser Speech Synthesis API when the file is absent.
+const audioEl=new Audio();
+function stopAudio(){ try{audioEl.pause();audioEl.currentTime=0;}catch(e){}
+  if('speechSynthesis'in window)window.speechSynthesis.cancel(); }
+function speak(i){ if(!voiceOn)return; if(i===spokenBeat)return; spokenBeat=i;
+  stopAudio();
+  const src='audio/v2-beat'+String(i+1).padStart(2,'0')+'.mp3';
+  // try the mp3; if it errors (missing), use the speech API instead
+  audioEl.onerror=()=>{ if('speechSynthesis'in window){
+    const u=new SpeechSynthesisUtterance(BEATS[i].say||BEATS[i].txt.replace(/<[^>]+>/g,''));
+    u.rate=1;u.pitch=1;window.speechSynthesis.speak(u);} };
+  audioEl.src=src; audioEl.play().catch(()=>{ if('speechSynthesis'in window){
+    const u=new SpeechSynthesisUtterance(BEATS[i].say||BEATS[i].txt.replace(/<[^>]+>/g,''));
+    u.rate=1;u.pitch=1;window.speechSynthesis.speak(u);} }); }
+function beatIdx2(x){return beatIdx(x);}
 
 function revealCaption(el, html){
   // split on spaces but keep inline tags (code, b) intact-ish: wrap text words only.
@@ -312,12 +331,12 @@ function render(){
     revealCaption(capTxt, b.txt);
     cap.classList.remove('pop'); void cap.offsetWidth; cap.classList.add('pop','show');
   }
-  fill.style.width=(100*t/TOTAL)+'%';timeEl.textContent=`${fmt(t)} / ${fmt(TOTAL)}`;
+  fill.style.width=(100*t/T())+'%';timeEl.textContent=`${fmt(t)} / ${fmt(T())}`;
 }
 function tick(ts){if(!playing)return;if(last==null)last=ts;t+=(ts-last)/1000;last=ts;
-  if(t>=TOTAL){t=TOTAL;render();pause();upNext();return;}render();raf=requestAnimationFrame(tick);}
-function play(){if(t>=TOTAL){t=0;spokenBeat=-1;capBeat=-1;}playing=true;last=null;playBtn.textContent='⏸';raf=requestAnimationFrame(tick);render();}
-function pause(){playing=false;playBtn.textContent='▶';cancelAnimationFrame(raf);if('speechSynthesis'in window)window.speechSynthesis.cancel();}
+  if(t>=T()){t=T();render();pause();upNext();return;}render();raf=requestAnimationFrame(tick);}
+function play(){if(t>=T()){t=0;spokenBeat=-1;capBeat=-1;}playing=true;last=null;playBtn.textContent='⏸';raf=requestAnimationFrame(tick);render();}
+function pause(){playing=false;playBtn.textContent='▶';cancelAnimationFrame(raf);stopAudio();}
 
 const pinlayer=document.getElementById('pinlayer');
 function placePin(spec){
@@ -360,7 +379,7 @@ voiceBtn.onclick=()=>{voiceOn=!voiceOn;voiceBtn.classList.toggle('on',voiceOn);
   if(!voiceOn&&'speechSynthesis'in window)window.speechSynthesis.cancel();
   else{spokenBeat=-1;if(playing)speak(beatIdx(t));}};
 document.getElementById('track').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();
-  t=Math.max(0,Math.min(TOTAL,(e.clientX-r.left)/r.width*TOTAL));render();};
+  t=Math.max(0,Math.min(T(),(e.clientX-r.left)/r.width*T()));render();};
 if(new URLSearchParams(location.search).get('autoplay')==='1'){ play(); }
 render();
 </script>
