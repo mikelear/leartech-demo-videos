@@ -261,7 +261,7 @@ const BEATS=[
   say:'The other branch, write-endpoints, failed after a retry, so its verify step stays pending and the plan is Failed. One branch shipped, one did not.'},
 ];
 const TOTAL=BEATS.reduce((s,b)=>s+b.d,0);
-const AUDIO_DUR=[4.3, 5.4, 4.2, 6.7, 5.9, 5.2, 7.2, 9.3];           // measured mp3 length per beat (seconds)
+const AUDIO_DUR=[4.4,3.7,4.2,6.7,5.9,5.2,7.2,9.3];           // measured mp3 length per beat (seconds)
 function beatDur(i){ // when the recorded voice is on, never cut a beat short
   const base=BEATS[i].d;
   return voiceOn ? Math.max(base, (AUDIO_DUR[i]||0)+0.6) : base;
@@ -284,7 +284,7 @@ function stopAudio(){ try{audioEl.pause();audioEl.currentTime=0;}catch(e){}
   if('speechSynthesis'in window)window.speechSynthesis.cancel(); }
 function speak(i){ if(!voiceOn)return; if(i===spokenBeat)return; spokenBeat=i;
   stopAudio();
-  const src='audio/v2-beat'+String(i+1).padStart(2,'0')+'.mp3';
+  const src='audio/plan-dag-beat'+String(i+1).padStart(2,'0')+'.mp3';
   // try the mp3; if it errors (missing), use the speech API instead
   audioEl.onerror=()=>{ if('speechSynthesis'in window){
     const u=new SpeechSynthesisUtterance(BEATS[i].say||BEATS[i].txt.replace(/<[^>]+>/g,''));
