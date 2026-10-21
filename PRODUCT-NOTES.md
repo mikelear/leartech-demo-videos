@@ -17,10 +17,18 @@ It's a *pattern made of three separable pieces*:
      sourced from the plan-catalog repo). It is text, not logic.
 2. **The render check** — `check_render.sh` (Chrome headless screenshot). A shell
    script, not an MCP.
-3. **The artifact MCP (`mcp__design__*`)** — this is the ONLY MCP in the picture,
-   and it does **storage only**: create → presigned PUT → finalize → get/list.
-   It does **no research, no rendering, no GH access.** `ship-proven design
-   publish` is a thin shell command that drives that storage cycle.
+3. **The artifact MCP (`mcp__design__*`)** — the ONLY MCP in the picture; it does
+   **storage only**: create → presigned PUT → finalize → get/list. No research,
+   no rendering, no GH access. `ship-proven design publish` is a thin shell command
+   that just DRIVES that cycle (create, upload each file, finalize) — it adds no
+   capability, only convenience.
+
+   > **So "video publish" is NOT a new thing.** It is literally
+   > `create_artifact(kind="video-bundle", files=[index.html, audio/*, SPEC.md])`
+   > + PUT + finalize — the same three calls as any artifact. The only difference
+   > is the `kind` label and which files you upload. A `ship-proven video publish`
+   > wrapper is optional sugar (runs the PUT loop, defaults the kind, writes
+   > provenance); you could call `mcp__design__create_artifact` directly instead.
 
 So when I said "the design MCP researches" — that was wrong. **Research is the
 gateway + live-data tools; the MCP just stores the result.** Verified: the
@@ -36,7 +44,7 @@ does everything":
 | Process/standard | a doc (`designing_in_ship_proven`) + shell loop | **FEATURES.md + AUTHORING.md in this repo** (the standard) |
 | Research | `gateway__search` + real data (`mcp__plan__*`, `gh`, clone) | **same** — reference THIS repo's examples + real screens |
 | Render | shell writes HTML | shell writes the self-playing page |
-| Render check | `check_render.sh` | same (reuse it) |
+| Render check | `check_render.sh` (a LOCAL shell script, lives in the design/standard repo — not here) | fold into the publish wrapper or a platform headless check; don't hard-depend on a laptop script |
 | Publish/store | `mcp__design__*` (artifact CRUD) | **same MCP**, `kind: video-bundle` |
 
 **There is almost no new MCP to build.** Video reuses the artifact MCP as-is
@@ -46,6 +54,27 @@ shell command. The only *optional* new verb ever is a read-only repo-fetch, and
 even that is a deliberate later decision (see below) — not required.
 
 ---
+
+## Honest note: what a publish relies on locally (and what we should fix)
+
+Two kinds of "local reliance", only one of which is inherent:
+
+1. **The bytes are local — and that's correct, not a smell.** The caller always
+   has the built HTML/audio in the working dir and PUTs them straight to GCS via
+   the presigned URL. The MCP never carries bytes (control plane only). Nothing to
+   change here; it's the same for any artifact.
+
+2. **The render CHECK is a local shell script — that IS an avoidable dependency.**
+   `check_render.sh` (Chrome headless, assert non-blank) is not in this repo; it's
+   a laptop/session script referenced by the design doc. For a portable product we
+   should NOT lean on it. Options:
+   - fold "renders non-blank?" into the publish wrapper, or
+   - make it a small platform check (headless render in a container) run at/around
+     publish — not something the user must have installed.
+
+   Until then: the render check is a *nice-to-have local step*, not a requirement
+   for the artifact push. A publish succeeds without it; the check just catches a
+   blank page before you seal it.
 
 ## The Repo is the standard; the loop just consumes it
 
