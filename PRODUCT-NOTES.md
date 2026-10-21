@@ -1,123 +1,120 @@
-# Packaging as a product — the design-MCP pattern, applied to video
+# Packaging as a product — the Ship Proven design PATTERN, applied to video
 
-You're right: this IS the design loop. Research → render stand-alone HTML →
-show the user → publish as a versioned artifact. The decisions below settle
-*where the knowledge lives* and *what the MCP does*.
+Important correction first, because it changes how we build the video version.
+
+## "Design MCP" is not one thing — it's three parts, and the process is the shell
+
+Ship Proven design is **not** a single MCP that does research + render + publish.
+It's a *pattern made of three separable pieces*:
+
+1. **The process (research → render → feedback → publish)** — this lives in the
+   **shell loop + a written standard**, not in an MCP.
+   - Research is `gateway__search` (a **gateway** tool) + reading real data.
+   - Render is the shell/agent writing HTML to the working folder.
+   - Feedback is the operator conversation — no tool does it.
+   - The standard that *describes* this loop is a doc:
+     `designing_in_ship_proven` (served by the **ship_proven** guidance server,
+     sourced from the plan-catalog repo). It is text, not logic.
+2. **The render check** — `check_render.sh` (Chrome headless screenshot). A shell
+   script, not an MCP.
+3. **The artifact MCP (`mcp__design__*`)** — this is the ONLY MCP in the picture,
+   and it does **storage only**: create → presigned PUT → finalize → get/list.
+   It does **no research, no rendering, no GH access.** `ship-proven design
+   publish` is a thin shell command that drives that storage cycle.
+
+So when I said "the design MCP researches" — that was wrong. **Research is the
+gateway + live-data tools; the MCP just stores the result.** Verified: the
+`mcp__design__*` surface is purely artifact CRUD (no search, no repo-read verb).
+
+### Why this matters for video
+
+It means we should copy the **pattern**, not build a monolithic "video MCP that
+does everything":
+
+| Design piece | Mechanism | Video equivalent |
+|---|---|---|
+| Process/standard | a doc (`designing_in_ship_proven`) + shell loop | **FEATURES.md + AUTHORING.md in this repo** (the standard) |
+| Research | `gateway__search` + real data (`mcp__plan__*`, `gh`, clone) | **same** — reference THIS repo's examples + real screens |
+| Render | shell writes HTML | shell writes the self-playing page |
+| Render check | `check_render.sh` | same (reuse it) |
+| Publish/store | `mcp__design__*` (artifact CRUD) | **same MCP**, `kind: video-bundle` |
+
+**There is almost no new MCP to build.** Video reuses the artifact MCP as-is
+(just a new `kind`), reuses the gateway for research, reuses the render check, and
+adds a **written standard (this repo)** plus a thin `ship-proven video publish`
+shell command. The only *optional* new verb ever is a read-only repo-fetch, and
+even that is a deliberate later decision (see below) — not required.
 
 ---
 
-## The key choice: the Repo is the standard; the MCP just consumes it
+## The Repo is the standard; the loop just consumes it
 
-Two ways the video loop could learn its features:
+Same conclusion as before, now correctly placed: the "process" for video is a
+**doc + shell loop**, exactly like `designing_in_ship_proven` is a doc + shell
+loop. This repo (FEATURES.md + reference pages) is that doc-and-examples standard.
 
-- **(A) MCP researches features at run time** — on every design it also asks
-  "are there new effects out on the web?" → the MCP carries evolving knowledge,
-  results drift run-to-run, and "what a video can do" has no fixed definition.
-- **(B) The Repo defines the standard; the MCP only reads it** — the video MCP's
-  research references THIS repo (examples + FEATURES.md) and real platform data,
-  and **never invents new features**. Keeping the repo current is a *separate,
-  slower process* outside the MCP.
-
-**Choose (B).** It's the same shape as the rest of the platform:
-
-| Capability | The standard lives in… | Kept current by… | The MCP/loop just… |
+| Capability | Standard lives in… | Kept current by… | The loop just… |
 |---|---|---|---|
-| Plans | `leartech-plan-catalog` rules R1–R27 | reviewed PRs to the catalog | lints against them |
-| Ship Proven guidance | docs in the catalog repo | reviewed PRs | serves the current text |
-| **Video** | **this repo (FEATURES.md + examples)** | **reviewed PRs (feature pipeline)** | **copies examples, builds, publishes** |
+| Plans | plan-catalog rules R1–R27 | reviewed PRs | lints against them |
+| Design | `designing_in_ship_proven` doc | reviewed PRs | follows it; stores via `mcp__design__*` |
+| **Video** | **this repo (FEATURES.md + examples)** | **reviewed PRs (feature loop)** | **follows it; stores via `mcp__design__*` (kind:video-bundle)** |
 
-This gives you the "nice abstract setup": **the Video Repo IS the product
-surface.** It is simultaneously the standard, the example library, and the
-research seed. The MCP is a thin, stateless consumer of it.
-
-### Why (B) beats (A)
-
-- **Determinism.** "What a video can do" = what FEATURES.md says, today, for
-  everyone. Not whatever the web surfaced this run. Same reason plan-lint is a
-  fixed rule set, not an LLM opinion.
-- **A real standard.** A published FEATURES.md + reference pages is something a
-  user (or another LLM) can be *pointed at* and trust. That's the offering.
-- **No run-time drift / no state in the MCP.** The MCP stays control-plane: read
-  the repo, read live platform data, render, publish. Nothing to keep in sync.
-- **Governance.** A new effect (say "Ken Burns pan") lands by PR to this repo —
-  reviewed, with a reference page proving it renders — exactly like a new
-  PlanTemplate. The gate is the merge.
-
----
-
-## So the architecture is two separated loops
-
+### Two separated loops
 ```
-┌─ FEATURE loop (slow, outside the MCP) ───────────────────────────┐
-│  web research / ideas  ─►  PR to leartech-demo-videos            │
-│  adds: a named feature in FEATURES.md + a reference page that    │
-│  renders (check_render)  ─►  review  ─►  merge = new standard    │
-└──────────────────────────────────────────────────────────────────┘
-            │  (the repo is the published standard + seed)
-            ▼
-┌─ DESIGN loop (fast, the MCP) ────────────────────────────────────┐
-│  research(topic, repos[])  — reads THIS repo's examples          │
-│                             + real data (plan-api / gh / clone)  │
-│  scaffold(spec)            — copies closest example, fills beats │
-│  check_render(file)        — Chrome headless, non-blank          │
-│  feedback (operator looks at the stand-alone HTML)               │
-│  publish(folder)          — create → PUT → finalize              │
-│                             == a kind:video-bundle artifact      │
-└──────────────────────────────────────────────────────────────────┘
+FEATURE loop (slow, outside any MCP): web research/ideas → PR to this repo →
+  named feature in FEATURES.md + a reference page that renders → review → merge.
+DESIGN loop (fast, the shell): research (gateway + real data, reads THIS repo)
+  → render HTML → feedback → ship-proven video publish (→ video-bundle artifact).
 ```
-
-- The **feature loop** keeps the repo's capabilities current. Human-paced,
-  reviewed, rare. This is where "are there new features out on the web?" is
-  answered — once, into the standard — not on every design.
-- The **design loop** is the MCP. It asks only: *given the current standard and
-  this real data, build the video the user described.* It never adds a feature
-  that isn't in the repo; if a user wants one, that's a feature-loop PR.
+The feature loop answers "any new effects out there?" once, into the standard.
+The design loop never adds a feature not in the repo.
 
 ---
 
-## What this means concretely
+## Referencing a screen's SOURCE
 
-- **MCP research = repo + real data, full stop.** `research()` reads
-  FEATURES.md/examples and pulls real plan/PR/screen data. It does **not** scan
-  the web for new effects — that's the feature loop's job.
-- **No "add repos" endpoint, no state.** Example seeds are git-versioned in this
-  repo; the repo a video is *about* is a per-call parameter; discovery is live
-  reads (`list_plans`, `gh`). Same stateless posture as the design MCP.
-- **The repo is versioned, so videos are reproducible.** A video bundle can
-  record which revision of FEATURES.md it was built against (provenance in
-  SPEC.md), the way a Plan records the rules revision it passed.
+### Now: local clone (what we've been doing)
+`git clone <repo>` read-only, read real files/diffs/screen markup, pull live run
+data from `mcp__plan__*` / `gh`. No new infra, honest provenance.
+
+### Later (optional): MCP-mediated repo read
+Neither the artifact MCP nor the ship_proven guidance server reads repos today —
+their auth is OAuth/DCR scoped to `leartechapi:artifact:*` / `leartechapi:mcp:*`,
+i.e. the control planes, **not a GitHub identity**. DCR governs *who may call the
+MCP*; it does not grant repo read. If we ever want a hosted designer with no
+laptop, add a narrow, read-only `read_repo_file` verb behind a platform GH app
+with its own `repo:read` scope — a deliberate new surface, DCR-governed,
+least-privilege. Not an accident of reuse.
 
 ---
 
-## The rest (unchanged): kind, embed, Plan route
+## The rest: kind, embed, Plan route
 
 ### `kind: video-bundle` — artifact-api supports it as-is
 `kind` is a free string (registry already carries design-system/-bundle/-doc).
-A video bundle's files are the page + optional audio + a SPEC.md (the video's
-"DESIGN.md"). Same create → presigned PUT (bytes direct to GCS) → finalize cycle,
-same lineage/TTL. `ship-proven video publish <folder>` owns the PUT.
+Files = the page + optional audio + SPEC.md (the video's "DESIGN.md"). Same
+create → presigned PUT (bytes direct to GCS) → finalize cycle, lineage/TTL.
 
-### Embed anywhere (Angular example)
-Single-file page → iframe the artifact, or copy the folder into
-`src/assets/videos/<slug>/`. No build step; that portability is the whole reason
-to keep the single-file format rather than rebuild as an Angular app.
+### Embed anywhere (Angular)
+Single-file page → iframe the artifact, or copy into `src/assets/videos/<slug>/`.
+No build step — the reason to keep the single-file format.
 
 ### Who makes the Angular PR
-Not the MCP. A normal **`kind: pr` Plan on `leartech-agent-ng`** whose goal is
-"consume video-bundle artifact `<id>` and embed it". The Plan holds the artifact
-*id*, never the bytes; the dev agent pulls the sealed bundle; verify-release-flow
-auto-injects (R23) and the usual gates apply.
+A normal **`kind: pr` Plan on `leartech-agent-ng`**: goal "consume video-bundle
+artifact `<id>` and embed it". Plan holds the artifact *id*, not bytes; the dev
+agent pulls the sealed bundle; verify-release-flow auto-injects (R23).
 
 ---
 
-## Recommendation
+## Recommendation (summary)
 
-1. **Make the Video Repo the standard** (FEATURES.md + reference pages) — it is
-   the product: standard, examples, and research seed in one versioned place.
-2. **Separate the two loops.** Feature loop (PRs to this repo, where web research
-   lands once) keeps capabilities current; the video MCP only consumes the repo
-   + real data. The MCP stays stateless/control-plane.
-3. **Reuse artifact-api with `kind:video-bundle`** — a sibling to design, not a
-   fork; same publish cycle, lineage, embed story.
-4. **Embed via a `kind:pr` ng Plan** referencing the artifact id, through the
-   normal gates.
+1. **Copy the pattern, not a monolith.** Video = a written standard (this repo) +
+   the gateway for research + the render check + the **existing artifact MCP**
+   (`kind:video-bundle`) + a thin `ship-proven video publish`. Little new code.
+2. **This repo is the standard** (FEATURES.md + examples): product surface,
+   examples, research seed, versioned.
+3. **Two loops:** slow reviewed feature loop keeps the repo current; the fast
+   design loop (shell) only consumes repo + real data.
+4. **Screen source = local clone now**; a DCR-governed read-only repo-fetch verb
+   is a possible later capability, not an existing one.
+5. **Embed via a `kind:pr` ng Plan** referencing the artifact id.
