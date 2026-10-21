@@ -1,0 +1,45 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PR #153 + Tekton</title><link rel="stylesheet" href="sp-video.css"></head><body>
+<div class="wrap">
+  <div class="eyebrow">Ship Proven · a PR step and its CI</div>
+  <h1>A merged PR step — and the Tekton run that proved it</h1>
+  <p class="sub">Two screens, linked by one head SHA. Built on the shared engine.</p>
+  <div class="movie" id="movie"><div class="stage">
+    <div class="pane gh" id="pane-gh">
+      <h2>github.com · leartech-mcp-servers</h2>
+      <div class="hd" data-k="g1">
+        <p class="title">serve the video-design standard <span class="num">#153</span></p>
+        <span class="state merged">⚑ Merged</span>
+        <div class="meta">2 files · <span class="ok">+74</span> −0 · head <span class="branch" data-k="gsha">59274ed</span></div>
+      </div>
+      <div class="grp">checks on the head SHA</div>
+      <div class="row" data-k="c1"><span class="ok">✔</span><span class="nm">gcp/lint</span><span class="st">Successful</span></div>
+      <div class="row" data-k="c1"><span class="ok">✔</span><span class="nm">gcp/test</span><span class="st">Successful</span></div>
+      <div class="row" data-k="c2"><span class="ok">✔</span><span class="nm">Lighthouse</span><span class="st">Mergeable</span></div>
+    </div>
+    <div class="pane" id="pane-tk">
+      <h2>tekton-dashboard-jx.jx · pipelineruns</h2>
+      <div class="prun head" data-k="t1"><span class="ico ok">✔</span><span class="nm">...pr-153-lint-hhr5j</span><span class="meta">go-lint · Succeeded</span></div>
+      <div class="prun" data-k="t2"><span class="ico ok">✔</span><span class="nm">...pr-153-test-vjkzw</span><span class="meta">go-test · Succeeded</span></div>
+      <div class="grp">lint PipelineRun · tasks</div>
+      <div class="stepstrip" data-k="t5"><span class="chip">clone</span><span class="chip">golangci-lint</span><span class="chip">comment-gate</span><span class="chip">auth-conformance</span></div>
+    </div>
+  </div>
+  <div class="pinlayer" id="pinlayer"></div>
+  <div class="caption" id="caption"><div class="step" id="cap-step"></div><div class="txt" id="cap-txt"></div></div></div>
+  <div class="bar"><button class="btn" id="play">▶</button>
+    <div class="track" id="track"><div class="fill" id="fill"></div></div>
+    <div class="time" id="time">0:00 / 0:00</div>
+    <button class="voice" id="voice"><span class="d"></span>Voiceover</button></div>
+</div>
+<script src="sp-video.js"></script>
+<script>
+SPVideo.mount({ beats:[
+ {d:5,pane:'gh',keys:['g1'],step:'1 · the PR step',txt:'A <code>pr</code> step\u2019s deliverable is one pull request — <b>#153</b>, merged.',say:'A pull request step\u2019s deliverable is one pull request. 153, merged.'},
+ {d:6,pane:'gh',keys:['c1'],step:'2 · checks on the head SHA',txt:'Checks ran on head <code>59274ed</code>.',pin:{target:'gsha',side:'left',html:'<b>keys off \u2192</b> <code>59274ed</code>'},say:'Checks ran on head 59274ed.'},
+ {d:6,pane:'tk',keys:['t1'],step:'3 · the same run on Tekton',txt:'Real PipelineRuns in namespace <code>jx</code>.',pin:{target:'c1',side:'right',html:'<b>\u2190 same checks</b>'},say:'Real pipeline runs in namespace J X.'},
+ {d:6,pane:'tk',keys:['t5'],zoom:'t5',step:'4 · zoom inside the lint run',txt:'clone \u2192 golangci-lint \u2192 <b>comment-gate</b> \u2192 auth-conformance.',say:'Clone, golangci lint, comment gate, auth conformance.'},
+ {d:5,pane:'gh',keys:['c2'],step:'5 · green \u2192 mergeable',txt:'Every run Succeeded, so #153 is <b>mergeable</b>.',pin:{target:'t1',side:'right',html:'<b>\u2190 because these</b> passed'},say:'Every run succeeded, so 153 is mergeable.'},
+]});
+</script></body></html>

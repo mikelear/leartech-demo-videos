@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ship Proven — VIDEO TITLE</title>
+<!-- The engine owns every effect. A new video changes only: panels + BEATS. -->
+<link rel="stylesheet" href="sp-video.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Ship Proven · CATEGORY</div>
+  <h1>VIDEO TITLE</h1>
+  <p class="sub">One-line description.</p>
+
+  <div class="movie" id="movie">
+    <div class="stage">
+      <!-- PANEL 1: id="pane-<key>"; give elements data-k so beats can target them -->
+      <div class="pane gh" id="pane-gh">
+        <h2>github.com · REPO</h2>
+        <div class="hd" data-k="g1">
+          <p class="title">PR TITLE <span class="num">#NNN</span></p>
+          <span class="state merged">⚑ Merged</span>
+          <div class="meta">head <span class="branch" data-k="gsha">SHA</span></div>
+        </div>
+        <div class="grp">checks</div>
+        <div class="row" data-k="c1"><span class="ok">✔</span><span class="nm">lint</span><span class="st">Successful</span></div>
+      </div>
+
+      <!-- PANEL 2 -->
+      <div class="pane" id="pane-tk">
+        <h2>tekton-dashboard · namespaces/jx/pipelineruns</h2>
+        <div class="prun head" data-k="t1"><span class="ico ok">✔</span><span class="nm">...pr-NNN-lint-xxxx</span><span class="meta">Succeeded</span></div>
+      </div>
+    </div>
+    <div class="pinlayer" id="pinlayer"></div>
+    <div class="caption" id="caption"><div class="step" id="cap-step"></div><div class="txt" id="cap-txt"></div></div>
+  </div>
+
+  <div class="bar">
+    <button class="btn" id="play">▶</button>
+    <div class="track" id="track"><div class="fill" id="fill"></div></div>
+    <div class="time" id="time">0:00 / 0:00</div>
+    <button class="voice" id="voice"><span class="d"></span>Voiceover</button>
+  </div>
+
+  <footer>Static page. Data captured via gh/plan-api on DATE.</footer>
+</div>
+
+<script src="sp-video.js"></script>
+<script>
+SPVideo.mount({
+  // audioSlug: 'beat',            // audio/beat01.mp3 … (optional recorded voiceover)
+  // nextVideo: {title:'…', href:'next.html?autoplay=1'},  // optional auto-advance
+  beats: [
+    { d:5, pane:'gh', keys:['g1'], step:'1 · title',
+      txt:'HTML shown in the caption.', say:'Plain text spoken by the voiceover.' },
+    { d:6, pane:'gh', keys:['c1'], step:'2 · a pin',
+      txt:'A cross-screen note.', pin:{target:'t1',side:'right',html:'<b>← linked</b> here'},
+      say:'A cross screen note.' },
+    { d:6, pane:'tk', keys:['t1'], zoom:'t1', step:'3 · zoom',
+      txt:'Zoom onto an element.', say:'Zoom onto an element.' },
+  ],
+});
+</script>
+</body>
+</html>
